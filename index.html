@@ -1866,7 +1866,7 @@ const AI_TIMELINES = [
       { t:9.5, act:'voice', text:'Luồng: Nháp → Phát hành → Đang sản xuất → Hoàn thành → Giao hàng → Đóng.' },
       { t:12.5, act:'reset' }
     ] },
-  { keys:['tim don','loc don','xem don hang','danh sach don','tra cuu don'],
+  { keys:['tim don','loc don','xem don hang','danh sach don','tra cuu don','tim kiem don','tim kiem don hang','tim kiem o dau'],
     timeline:[
       { t:0.0, act:'voice', text:'Bạn có thể tìm và lọc đơn hàng trong tab Đơn hàng.' },
       { t:0.2, act:'focus', sel:'[data-tut="nav-orders"]', text:'Mở tab Đơn hàng.' },
@@ -1881,6 +1881,16 @@ const AI_TIMELINES = [
       { t:1.6, act:'click', sel:'[data-tut="nav-lsx"]' },
       { t:3.0, act:'focus', sel:'#view-lsx .grid > div:first-child', text:'Mỗi thẻ hiển thị tải trọng, khung giờ và cảnh báo nguy cơ trễ.' },
       { t:6.0, act:'reset' }
+    ] },
+  { keys:['gioi thieu giao dien','giao dien','man hinh','cac tab','cac chuc nang'],
+    timeline:[
+      { t:0.0,  act:'voice', text:'Giao diện gồm 4 tab chính: Tổng quan, Đơn hàng, Lệnh sản xuất và Thiết lập.' },
+      { t:0.2,  act:'focus', sel:'[data-tut="nav-dashboard"]', text:'Tab Tổng quan — KPI, trạng thái đơn, tải dây chuyền, top khách hàng.' },
+      { t:3.0,  act:'focus', sel:'[data-tut="nav-orders"]',    text:'Tab Đơn hàng — bảng toàn bộ đơn, tìm kiếm, lọc, tạo và sửa đơn.' },
+      { t:5.8,  act:'focus', sel:'[data-tut="nav-lsx"]',       text:'Tab Lệnh sản xuất — gộp đơn cùng quy cách thành LSX và xếp lịch.' },
+      { t:8.6,  act:'focus', sel:'[data-tut="nav-setup"]',     text:'Tab Thiết lập — doanh thu theo loại tôn, dây chuyền, ca làm việc.' },
+      { t:11.4, act:'voice', text:'Trên điện thoại, dùng thanh 4 tab ở dưới cùng màn hình để chuyển qua lại.' },
+      { t:14.0, act:'reset' }
     ] },
   { keys:['tong quan','dashboard','kpi','bao cao chung'],
     timeline:[
