@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản lý Lệnh Sản Xuất — Tôn Bình Minh</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; }
+  svg.lucide { width:16px; height:16px; stroke-width:2; vertical-align:-3px; }
+  .nav-btn { display:inline-flex; align-items:center; gap:10px; }
+  .nav-btn svg.lucide { width:18px; height:18px; flex-shrink:0; }
+  .mob-btn svg.lucide { width:22px; height:22px; }
+  .mob-btn.active { color:#0ea5e9; }
+  .mob-btn.active svg.lucide { stroke:#0ea5e9; }
+  .kpi { display:flex; align-items:center; justify-content:space-between; }
+  @media (max-width: 1023px){ .hide-mob { display:none !important; } }
+  .pill { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:600; white-space:nowrap; }
+  table.tbl th { background:#f1f5f9; font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:#475569; }
+  table.tbl td, table.tbl th { padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size:13px; }
+  table.tbl tbody tr:hover { background:#f8fafc; cursor:pointer; }
+  .bar { height:8px; border-radius:9999px; background:#e2e8f0; overflow:hidden; }
+  .bar > i { display:block; height:100%; border-radius:9999px; }
+  .nav-btn.active { background:#0ea5e9; }
+</style>
+</head>
+<body class="bg-gray-100 text-slate-800">
+<div class="flex h-screen">
+  <aside class="hide-mob w-60 bg-slate-800 text-white flex-col shrink-0 hidden lg:flex">
+    <div class="p-5 border-b border-slate-700 flex items-center gap-3">
+      <i data-lucide="factory" class="!w-7 !h-7 text-sky-400"></i>
+      <div>
+        <div class="text-lg font-bold leading-tight">Tôn Bình Minh</div>
+        <div class="text-xs text-slate-400">Quản lý Lệnh Sản Xuất</div>
+      </div>
+    </div>
+    <nav class="p-3 flex flex-col gap-1">
+      <button class="nav-btn w-full px-4 py-2.5 rounded-lg hover:bg-slate-700 transition" data-tut="nav-dashboard" data-tab="dashboard" onclick="app.go('dashboard')"><i data-lucide="layout-dashboard"></i><span>Tổng quan</span></button>
+      <button class="nav-btn px-4 py-2.5 rounded-lg hover:bg-slate-700 transition" data-tut="nav-orders" data-tab="orders" onclick="app.go('orders')"><i data-lucide="clipboard-list"></i><span>Đơn hàng</span><span id="nav-orders" class="pill bg-slate-600 ml-auto"></span></button>
+      <button class="nav-btn px-4 py-2.5 rounded-lg hover:bg-slate-700 transition" data-tut="nav-lsx" data-tab="lsx" onclick="app.go('lsx')"><i data-lucide="settings-2"></i><span>Lệnh sản xuất</span><span id="nav-lsx" class="pill bg-slate-600 ml-auto"></span></button>
+      <button class="nav-btn w-full px-4 py-2.5 rounded-lg hover:bg-slate-700 transition" data-tut="nav-setup" data-tab="setup" onclick="app.go('setup')"><i data-lucide="sliders-horizontal"></i><span>Thiết lập</span></button>
+    </nav>
+    <div class="mt-auto p-4 text-xs text-slate-500 border-t border-slate-700">
+      Dữ liệu demo lưu trong localStorage.<br>
+      <button class="underline hover:text-slate-300 mt-1" onclick="app.resetData()">Khôi phục dữ liệu demo</button>
+    </div>
+  </aside>
+  <main class="flex-1 overflow-auto pb-20 lg:pb-0">
+    <header class="bg-white border-b px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between sticky top-0 z-10">
+      <div class="flex items-center gap-3">
+        <i data-lucide="factory" class="!w-6 !h-6 text-sky-600 lg:hidden"></i>
+        <h2 id="page-title" class="text-lg lg:text-xl font-bold text-slate-700">Tổng quan</h2>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative hidden md:block">
+          <input id="ai-query" type="text" placeholder="Hỏi AI: cách tạo đơn hàng? / đang có bao nhiêu đơn?"
+            onkeydown="if(event.key==='Enter')askAI()"
+            onfocus="aiShowSuggestions()" onblur="setTimeout(aiHideSuggestions,180)"
+            autocomplete="off"
+            class="border rounded-lg px-3 py-1.5 text-xs lg:text-sm w-56 lg:w-72 focus:outline-none focus:ring-2 focus:ring-violet-300">
+          <div id="ai-suggest" class="hidden absolute top-full mt-1 right-0 w-72 lg:w-80 bg-white border rounded-lg shadow-xl z-[80] py-1 max-h-72 overflow-auto text-sm"></div>
+        </div>
+        <button onclick="askAI()" title="Hỏi trợ lý AI"
+          class="text-xs lg:text-sm bg-violet-100 text-violet-700 hover:bg-violet-200 px-3 py-1.5 rounded-lg font-semibold inline-flex items-center gap-1">
+          <i data-lucide="sparkles"></i><span class="hidden sm:inline">Hỏi AI</span>
+        </button>
+        <div class="text-xs lg:text-sm text-slate-500 flex items-center gap-2">
+          <i data-lucide="calendar"></i><span id="today-label"></span>
+        </div>
+      </div>
+    </header>
+    <div class="p-4 lg:p-8">
+      <div id="view-dashboard"></div>
+      <div id="view-orders" class="hidden"></div>
+      <div id="view-lsx" class="hidden"></div>
+      <div id="view-setup" class="hidden"></div>
+    </div>
+  </main>
+</div>
+<nav class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t z-40 grid grid-cols-4">
+  <button class="mob-btn py-2 flex flex-col items-center gap-1 text-[11px] text-slate-500" data-tab="dashboard" onclick="app.go('dashboard')"><i data-lucide="layout-dashboard"></i>Tổng quan</button>
+  <button class="mob-btn py-2 flex flex-col items-center gap-1 text-[11px] text-slate-500" data-tab="orders" onclick="app.go('orders')"><span class="relative inline-flex"><i data-lucide="clipboard-list"></i><span id="mob-orders" class="absolute -top-1.5 -right-2 pill bg-sky-500 text-white !text-[9px] !px-1.5 !py-0"></span></span><span>Đơn hàng</span></button>
+  <button class="mob-btn py-2 flex flex-col items-center gap-1 text-[11px] text-slate-500" data-tab="lsx" onclick="app.go('lsx')"><span class="relative inline-flex"><i data-lucide="settings-2"></i><span id="mob-lsx" class="absolute -top-1.5 -right-2 pill bg-sky-500 text-white !text-[9px] !px-1.5 !py-0"></span></span><span>LSX</span></button>
+  <button class="mob-btn py-2 flex flex-col items-center gap-1 text-[11px] text-slate-500" data-tab="setup" onclick="app.go('setup')"><i data-lucide="sliders-horizontal"></i>Thiết lập</button>
+</nav>
+<div id="modal-root"></div>
+<div id="toast-root" class="fixed bottom-24 lg:bottom-6 right-6 z-[60] flex flex-col gap-2"></div>
+<div id="ai-panel" class="hidden fixed bottom-24 lg:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[70]">
+  <div class="bg-white rounded-xl shadow-2xl border border-violet-200 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 bg-violet-50 border-b border-violet-100">
+      <div class="flex items-center gap-2 text-violet-700 font-semibold text-sm">
+        <i data-lucide="sparkles" class="!w-4 !h-4"></i><span>Trợ lý AI</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="aiSpeak()" title="Đọc lại" class="text-violet-600 hover:bg-violet-100 p-1 rounded"><i data-lucide="volume-2" class="!w-4 !h-4"></i></button>
+        <button onclick="aiClose()" title="Đóng" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100"><i data-lucide="x" class="!w-4 !h-4"></i></button>
+      </div>
+    </div>
+    <div id="ai-answer" class="px-4 py-3 text-sm text-slate-700 max-h-72 overflow-auto whitespace-pre-wrap leading-relaxed"></div>
+  </div>
+</div>
+
+<script>
+/* ============================= Helpers ============================= */
+const $  = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => Number(n).toLocaleString('vi-VN', {maximumFractionDigits:2});
+const todayStr = () => new Date().toISOString().slice(0,10);
+function dateOffset(days){ const d = new Date(); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+function fmtDate(d){ if(!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; }
+function daysUntil(d){ return Math.round((new Date(d+'T00:00:00') - new Date(todayStr()+'T00:00:00'))/86400000); }
+function dueLabel(d){
+  const n = daysUntil(d);
+  if(n < 0) return `<span class="text-red-600 font-semibold">Trễ ${Math.abs(n)} ngày</span>`;
+  if(n === 0) return `<span class="text-red-500 font-semibold">Hôm nay</span>`;
+  if(n <= 3) return `<span class="text-amber-600 font-semibold">Còn ${n} ngày</span>`;
+  return `Còn ${n} ngày`;
+}
+
+/* ============================= Constants ============================= */
+const DB_KEY = 'lsx_demo_state_v1';
+const CORES = ['BMLock 985','BMLock 1000','BMSeamlock 485','BMSeamlock 500','Industrial 5 sóng','Industrial 6 sóng','Residential 9 sóng','Residential 11 sóng','Residential 13 sóng'];
+const FINISHES = ['Caulfield Green','Forever Beige','Mist Green','Xanh Navy','Đỏ đô','Trắng sữa','Ghi bạc'];
+const THICKNESS = [0.35,0.40,0.45,0.50,0.55,0.60];
+// Khổ hữu ích (m) theo từng loại tôn — dùng để gợi ý kích thước khi tạo đơn
+const COVER_WIDTH = {
+  'BMLock 985':0.985, 'BMLock 1000':1.0,
+  'BMSeamlock 485':0.485, 'BMSeamlock 500':0.5,
+  'Industrial 5 sóng':1.0, 'Industrial 6 sóng':1.0,
+  'Residential 9 sóng':1.0, 'Residential 11 sóng':1.0, 'Residential 13 sóng':1.1
+};
+const PRIORITIES = {cao:'Cao', tb:'Trung bình', thap:'Thấp'};
+const PRIO_RANK = {cao:0, tb:1, thap:2};
+const PRIO_CLASS = {cao:'bg-red-100 text-red-700', tb:'bg-amber-100 text-amber-700', thap:'bg-gray-100 text-gray-600'};
+const STATUS = {
+  draft:'Nháp', released:'Đã phát hành', in_production:'Đang sản xuất',
+  finished:'Hoàn thành', shipped:'Đã giao hàng', closed:'Đã đóng',
+  canceled:'Đã hủy', holding:'Treo'
+};
+const STATUS_CLASS = {
+  draft:'bg-gray-100 text-gray-700', released:'bg-blue-100 text-blue-700',
+  in_production:'bg-amber-100 text-amber-700', finished:'bg-teal-100 text-teal-700',
+  shipped:'bg-indigo-100 text-indigo-700', closed:'bg-green-100 text-green-700',
+  canceled:'bg-red-100 text-red-700', holding:'bg-purple-100 text-purple-700'
+};
+const FLOW = {
+  draft:['released','canceled'], released:['in_production','holding','canceled'],
+  holding:['released','canceled'], in_production:['finished'],
+  finished:['shipped'], shipped:['closed'], closed:[], canceled:[]
+};
+const ACTION_LABEL = {released:'Phát hành', in_production:'Bắt đầu SX', holding:'Treo',
+  finished:'Hoàn thành', shipped:'Giao hàng', closed:'Đóng', canceled:'Hủy'};
+const LSX_STATUS = {planned:'Đã lập KH', in_production:'Đang SX', finished:'Hoàn thành'};
+const LSX_STATUS_CLASS = {planned:'bg-blue-100 text-blue-700', in_production:'bg-amber-100 text-amber-700', finished:'bg-green-100 text-green-700'};
+const TAB_ICON = {dashboard:'layout-dashboard', orders:'clipboard-list', lsx:'settings-2', setup:'sliders-horizontal'};
+// Đơn giá ước tính theo loại tôn (VND / m²) — dùng cho báo cáo doanh thu
+const PRICE = {
+  'BMLock 985':195000, 'BMLock 1000':195000,
+  'BMSeamlock 485':215000, 'BMSeamlock 500':215000,
+  'Industrial 5 sóng':145000, 'Industrial 6 sóng':145000,
+  'Residential 9 sóng':165000, 'Residential 11 sóng':165000, 'Residential 13 sóng':165000
+};
+
+// Ca làm việc — LSX xếp theo khung giờ, không vắt qua ca nếu không bàn giao
+const SHIFTS = [
+  {id:'S1', name:'Ca 1 (hành chính)', start:'06:00', end:'14:00', hours:8},
+  {id:'S2', name:'Ca 2 (chiều)',      start:'14:00', end:'22:00', hours:8},
+  {id:'S3', name:'Ca 3 (đêm)',        start:'22:00', end:'06:00', hours:8}
+];
+const BUFFER_HOURS = 2;        // đệm vận chuyển + QC trước khi giao
+const DEFAULT_SETUP_MIN = 30;  // đổi quy cách giữa 2 LSX cùng line
+const DEFAULT_DUE_TIME = '17:00';
+
+/* ============================= State ============================= */
+let state = null;
+let currentTab = 'dashboard';
+let ordersFilter = {q:'', status:''};
+let linePtr = 0;
+
+function load(){
+  try { const raw = localStorage.getItem(DB_KEY); return raw ? JSON.parse(raw) : null; }
+  catch(e){ return null; }
+}
+function save(){ localStorage.setItem(DB_KEY, JSON.stringify(state)); }
+
+let _oid = 1;
+const nextOrderId = () => 'SO-2024-' + String(_oid++).padStart(4,'0');
+const nextLsxId   = n => 'LSX-2024-' + String(n).padStart(2,'0');
+
+function seed(){
+  _oid = 1;
+  const lines = [
+    {id:'L1', name:'Dây chuyền 1', capacity:1500, capacityPerHour:190, setupMinutes:30},
+    {id:'L2', name:'Dây chuyền 2',   capacity:2000, capacityPerHour:250, setupMinutes:45},
+    {id:'L3', name:'Dây chuyền 3',    capacity:1200, capacityPerHour:150, setupMinutes:20}
+  ];
+  const workCenters = [
+    {id:'cut', name:'Cắt'},{id:'press', name:'Ép'},{id:'edge', name:'Cạnh'},
+    {id:'qc', name:'QC'},{id:'pack', name:'Đóng gói'}
+  ];
+  const customers = [
+    'Cty CP XDCT số 8','Cty TNHH RCB Construction','Cty TNHH TM XNK Bạch Đằng',
+    'Cty CP XD Vinacons','Cty CP XD 105','Cty CP TV XD Thịnh Phát',
+    'Cty CP ƯD & CGCN','Cty TNHH HICON','Cty TNHH QH Plus',
+    'Cty TNHH Kirby Đông Nam Á','Cty TNHH Koizumi VN','Cty TNHH BYD Việt Nam',
+    'Cty TNHH Fansifan','Cty CP Đầu tư SAM IL','Cty TNHH Mapletree VN',
+    'Cty CP Dinh dưỡng Hồng Hà','Cty TNHH Alpha Green Tech Vina',
+    'Cty TNHH Tonly Electronics','Cty TNHH Pully Electronics','Cty TNHH CJ Foods VN',
+    'Cty CP KCN Long Hậu','Cty TNHH Sam IL'
+  ];
+  const specs = [
+    ['BMLock 985',0.45,'Caulfield Green'],['BMLock 1000',0.50,'Forever Beige'],
+    ['BMSeamlock 485',0.50,'Mist Green'],['BMSeamlock 500',0.60,'Xanh Navy'],
+    ['Industrial 5 sóng',0.40,'Đỏ đô'],['Industrial 6 sóng',0.45,'Ghi bạc'],
+    ['Residential 9 sóng',0.40,'Trắng sữa'],['Residential 11 sóng',0.45,'Caulfield Green'],
+    ['Residential 13 sóng',0.50,'Forever Beige'],
+    ['BMLock 985',0.60,'Xanh Navy'],['Industrial 6 sóng',0.35,'Mist Green'],
+    ['BMSeamlock 500',0.55,'Đỏ đô']
+  ];
+  const prios = ['cao','tb','thap'];
+  const statusPool = ['released','released','released','released','released','released','released','released',
+                      'draft','draft','holding',
+                      'in_production','in_production','in_production','in_production','in_production',
+                      'finished','finished','shipped','closed','canceled'];
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+  const orders = [];
+  for(let i=0;i<120;i++){
+    const [core, thickness, finish] = pick(specs);
+    const w = COVER_WIDTH[core] || 1.0;
+    const l = pick([2.0,2.5,3.0,3.5,4.0,5.0,6.0,8.0]);
+    const qty = Math.round(rnd(50,450)/10)*10;
+    const status = pick(statusPool);
+    const dueOff = ['closed','shipped'].includes(status) ? -Math.floor(rnd(3,25))
+                 : status === 'canceled' ? -Math.floor(rnd(1,10))
+                 : status === 'finished' ? -Math.floor(rnd(0,4))
+                 : Math.floor(rnd(-2,15));
+    orders.push({
+      id: nextOrderId(),
+      core, thickness, finish, width:w, length:l, qty,
+      area: +(w*l*qty).toFixed(2),
+      customer: pick(customers),
+      due: dateOffset(dueOff),
+      dueTime: pick(['08:00','10:00','11:30','13:30','14:00','15:30','16:00','17:00']),
+      prio: pick(prios),
+      status,
+      note: status === 'canceled' ? 'Khách hủy đơn'
+          : (Math.random() < 0.2 ? 'Giao theo tiến độ công trình' : ''),
+      createdAt: dateOffset(-Math.floor(rnd(1,30)))
+    });
+  }
+  orders.sort((a,b) => (a.core+a.thickness+a.finish).localeCompare(b.core+b.thickness+b.finish));
+
+  // Gom các đơn 'released' thành LSX ~10 đơn
+  const lsx = [];
+  const byKey = {};
+  orders.filter(o => o.status === 'released').forEach(o => {
+    const k = groupKey(o); (byKey[k] = byKey[k] || []).push(o);
+  });
+  let lsxNum = 1;
+  Object.keys(byKey).forEach(k => {
+    const arr = byKey[k];
+    for(let i=0; i<arr.length; i+=10){
+      const chunk = arr.slice(i, i+10);
+      if(chunk.length < 4) continue;
+      const [core, thickness, finish] = k.split('|');
+      const line = lines[lsxNum % lines.length];
+      const st = pick(['planned','planned','planned','in_production']);
+      const shift = SHIFTS[lsxNum % 2]; // phân bổ ca 1/2
+      const startH = shift.start, endH = (parseInt(shift.start)+4).toString().padStart(2,'0') + ':00';
+      lsx.push({
+        id: nextLsxId(lsxNum++),
+        lineId: line.id, groupKey:k,
+        core, thickness:+thickness, finish,
+        orderIds: chunk.map(o => o.id),
+        status: st,
+        plannedStart: todayStr(),
+        plannedStartH: startH,
+        plannedEnd: dateOffset(3),
+        plannedEndH: endH,
+        setupMin: line.setupMinutes || DEFAULT_SETUP_MIN,
+        actualArea: st === 'in_production' ? +(chunk.reduce((s,o)=>s+o.area,0)*0.4).toFixed(2) : 0,
+        createdAt: todayStr()
+      });
+    }
+  });
+
+  return { orders, lsx, lines, workCenters, seq:{order:_oid, lsx: lsxNum+1} };
+}
+
+/* ============================= Lookups ============================= */
+const findOrder = id => state.orders.find(o => o.id === id);
+const findLine  = id => state.lines.find(l => l.id === id);
+const lsxOfOrder = id => state.lsx.find(l => l.orderIds.includes(id));
+function lsxArea(l){ return +l.orderIds.reduce((s,id) => { const o = findOrder(id); return s + (o ? o.area : 0); }, 0).toFixed(2); }
+function groupKey(o){ return o.core + '|' + o.thickness + '|' + o.finish; }
+function unassignedReleased(){ return state.orders.filter(o => o.status === 'released' && !lsxOfOrder(o.id)); }
+const priceOf = o => (PRICE[o.core] || 300000) * o.area;
+const orderRevenue = o => ['shipped','closed','finished','in_production','released'].includes(o.status) ? priceOf(o) : 0;
+const isOnTime = o => ['shipped','closed','finished'].includes(o.status) ? daysUntil(o.due) >= 0 : null;
+
+/* ---- Lịch trình theo giờ ---- */
+const dueDateTime = o => new Date((o.due || todayStr()) + 'T' + (o.dueTime || DEFAULT_DUE_TIME) + ':00');
+function fmtDateTime(d, h){ return d ? fmtDate(d) + (h ? ' ' + h : '') : '—'; }
+function lsxDonePct(l){ const t = lsxArea(l); return t ? Math.min(100, Math.round((l.actualArea||0) / t * 100)) : 0; }
+// Còn kịp giao không? — trả về {ok, hoursNeeded, hoursAvail, slack, earliest}
+function canMakeDue(l){
+  const line = findLine(l.lineId); if(!line || !line.capacityPerHour) return null;
+  const members = l.orderIds.map(findOrder).filter(Boolean);
+  if(!members.length) return null;
+  const earliest = members.reduce((m,o) => dueDateTime(o) < dueDateTime(m) ? o : m);
+  const remain = Math.max(0, lsxArea(l) - (l.actualArea || 0));
+  const hoursNeeded = remain / line.capacityPerHour + (l.setupMin || line.setupMinutes || DEFAULT_SETUP_MIN)/60;
+  const hoursAvail = (dueDateTime(earliest).getTime() - Date.now())/3.6e6 - BUFFER_HOURS;
+  return { earliest, remain, hoursNeeded, hoursAvail, ok: hoursNeeded <= hoursAvail, slack: hoursAvail - hoursNeeded };
+}
+function dueRiskBadge(o){
+  if(['closed','shipped','canceled','finished'].includes(o.status)) return '';
+  const h = (dueDateTime(o).getTime() - Date.now())/3.6e6;
+  if(h < 0) return `<span class="pill bg-red-100 text-red-700">${icon('alarm-clock')} Quá hạn</span>`;
+  if(h < 4) return `<span class="pill bg-amber-100 text-amber-700">${icon('timer')} ${h.toFixed(1)}h</span>`;
+  return '';
+}
+
+/* ============================= Icons / Badges ============================= */
+function icon(name, cls){ return `<i data-lucide="${name}"${cls?` class="${cls}"`:''}></i>`; }
+function refreshIcons(){ if(window.lucide) window.lucide.createIcons(); }
+function statusBadge(st){ return `<span class="pill ${STATUS_CLASS[st]}">${STATUS[st]}</span>`; }
+function prioBadge(p){
+  const ic = p === 'cao' ? 'flame' : p === 'thap' ? 'arrow-down' : 'minus';
+  return `<span class="pill ${PRIO_CLASS[p]} inline-flex items-center gap-1">${icon(ic)}${PRIORITIES[p]}</span>`;
+}
+
+/* ============================= BOM ============================= */
+function bomFor(o){
+  const area = o.area;
+  const t = (o.thickness || 0.45) / 1000;
+  const steelKg = area * t * 7850;
+  return [
+    {name:'Tôn cuộn mạ màu', spec:`${o.finish} · ${o.thickness}mm`, qty:+(steelKg*1.03/1000).toFixed(3), unit:'tấn'},
+    {name:'Sơn phủ bảo vệ', spec:o.finish, qty:+(area*0.04*1.05).toFixed(2), unit:'kg'},
+    {name:'Ốc vít bắt mái', spec:'B2S-TEK 12-14 x 68 HGS', qty:Math.ceil(o.qty*8), unit:'cái'},
+    {name:'Long đền cao su', spec:'GAL washer 19mm', qty:Math.ceil(o.qty*8), unit:'cái'}
+  ];
+}
+
+/* ============================= Toast / Modal ============================= */
+function toast(msg){
+  const el = document.createElement('div');
+  el.className = 'bg-slate-800 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg animate-pulse';
+  el.textContent = msg;
+  $('#toast-root').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; setTimeout(() => el.remove(), 400); }, 2600);
+}
+function openModal(html, wide){
+  $('#modal-root').innerHTML =
+    `<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)app.closeModal()">
+       <div class="bg-white rounded-xl shadow-2xl w-full ${wide?'max-w-4xl':'max-w-2xl'} max-h-[92vh] overflow-auto">${html}</div>
+     </div>`;
+}
+function closeModal(){ $('#modal-root').innerHTML = ''; }
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+
+/* ============================= Badges ============================= */
+function statusBadge(st){ return `<span class="pill ${STATUS_CLASS[st]}">${STATUS[st]}</span>`; }
+function prioBadge(p){ return `<span class="pill ${PRIO_CLASS[p]}">${PRIORITIES[p]}</span>`; }
+
+/* ============================= App ============================= */
+const app = {
+  /* ---------- navigation ---------- */
+  go(tab){
+    currentTab = tab;
+    $$('.nav-btn, .mob-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    const titles = {dashboard:'Tổng quan', orders:'Đơn hàng', lsx:'Lệnh sản xuất', setup:'Thiết lập'};
+    $('#page-title').textContent = titles[tab];
+    ['dashboard','orders','lsx','setup'].forEach(t => $('#view-'+t).classList.toggle('hidden', t !== tab));
+    this.renderTab(tab);
+  },
+  renderTab(tab){
+    if(tab === 'dashboard') this.renderDashboard();
+    if(tab === 'orders')    this.renderOrders();
+    if(tab === 'lsx')       this.renderLsx();
+    if(tab === 'setup')     this.renderSetup();
+    const n = state.orders.length, l = state.lsx.length;
+    $('#nav-orders').textContent = n; $('#nav-lsx').textContent = l;
+    const mo = $('#mob-orders'), ml = $('#mob-lsx');
+    if(mo){ mo.textContent = n; mo.style.display = n ? '' : 'none'; }
+    if(ml){ ml.textContent = l; ml.style.display = l ? '' : 'none'; }
+    refreshIcons();
+  },
+  renderAll(){ save(); this.renderTab(currentTab); },
+
+  /* ---------- dashboard ---------- */
+  renderDashboard(){
+    const counts = {}; Object.keys(STATUS).forEach(k => counts[k] = 0);
+    state.orders.forEach(o => counts[o.status]++);
+    const activeOrders = state.orders.filter(o => !['closed','canceled'].includes(o.status));
+    const inSxArea = state.orders.filter(o => o.status === 'in_production').reduce((s,o) => s+o.area, 0);
+    const totalArea = state.orders.reduce((s,o) => s+o.area, 0);
+    const revenue = state.orders.reduce((s,o) => s + orderRevenue(o), 0);
+    const onTimeList = state.orders.filter(o => isOnTime(o) !== null);
+    const onTimeRate = onTimeList.length ? Math.round(onTimeList.filter(o => isOnTime(o)).length / onTimeList.length * 100) : 0;
+    const overdue = state.orders.filter(o => !['closed','shipped','canceled','finished'].includes(o.status) && daysUntil(o.due) < 0);
+    const upcoming = state.orders
+      .filter(o => !['closed','shipped','canceled'].includes(o.status) && daysUntil(o.due) >= 0 && daysUntil(o.due) <= 7)
+      .sort((a,b) => a.due.localeCompare(b.due));
+    const running = state.lsx.filter(l => l.status !== 'finished');
+
+    // Diện tích theo dây chuyền
+    const lineLoad = state.lines.map(L => {
+      const lsxList = state.lsx.filter(x => x.lineId === L.id);
+      const area = lsxList.reduce((s,x) => s + lsxArea(x), 0);
+      return {L, area, count: lsxList.length, pct: Math.min(100, area / L.capacity * 100)};
+    });
+    const maxLineArea = Math.max(1, ...lineLoad.map(x => x.area));
+
+    // Top khách hàng
+    const custMap = {};
+    state.orders.forEach(o => {
+      if(!['closed','canceled'].includes(o.status)){
+        custMap[o.customer] = custMap[o.customer] || {area:0, rev:0, count:0};
+        custMap[o.customer].area += o.area;
+        custMap[o.customer].rev  += priceOf(o);
+        custMap[o.customer].count++;
+      }
+    });
+    const topCust = Object.entries(custMap).sort((a,b) => b[1].rev - a[1].rev).slice(0,5);
+
+    const kpis = [
+      {label:'Đơn hàng đang xử lý', value: fmt(activeOrders.length), sub:`/ ${state.orders.length} tổng`, icon:'clipboard-list', color:'sky'},
+      {label:'Diện tích đang SX',    value: fmt(inSxArea)+' m²', sub:`Tổng ${fmt(totalArea)} m²`, icon:'ruler', color:'amber'},
+      {label:'Doanh thu ước tính',   value: fmt(Math.round(revenue/1e6))+' tr', sub:'VND', icon:'banknote', color:'emerald'},
+      {label:'Giao đúng hạn',        value: onTimeRate+'%', sub:`${overdue.length} đơn trễ`, icon:'clock', color:'indigo'}
+    ].map(k => `
+      <div class="bg-white rounded-xl p-4 shadow-sm border">
+        <div class="kpi">
+          <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">${k.label}</div>
+          <i data-lucide="${k.icon}" class="text-${k.color}-500 !w-5 !h-5"></i>
+        </div>
+        <div class="text-2xl font-bold text-slate-700 mt-1">${k.value}</div>
+        <div class="text-xs text-slate-400 mt-0.5">${k.sub}</div>
+      </div>`).join('');
+
+    const statusCards = Object.keys(STATUS).map(k =>
+      `<button onclick="app.filterStatus('${k}')" class="bg-white rounded-lg px-3 py-2 shadow-sm border hover:shadow-md hover:border-sky-300 transition text-left flex items-center justify-between gap-2">
+         <span class="text-xs text-slate-500">${STATUS[k]}</span>
+         <span class="font-bold text-slate-700">${counts[k]}</span>
+       </button>`).join('');
+
+    $('#view-dashboard').innerHTML = `
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">${kpis}</div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-slate-700 text-sm">Trạng thái đơn hàng</h3>
+          <span class="text-xs text-slate-400">Bấm để xem chi tiết</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">${statusCards}</div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <div class="bg-white rounded-xl p-5 shadow-sm border lg:col-span-2">
+          <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">${icon('activity')}Tải dây chuyền</h3>
+          ${lineLoad.map(x => `
+            <div class="mb-3 last:mb-0">
+              <div class="flex items-center justify-between text-sm mb-1">
+                <span class="font-semibold text-slate-700">${esc(x.L.name)}</span>
+                <span class="text-slate-500">${x.count} LSX · <b>${fmt(x.area)}</b> / ${fmt(x.L.capacity)} m²</span>
+              </div>
+              <div class="bar"><i class="${x.pct>85?'bg-amber-500':'bg-sky-500'}" style="width:${x.area/maxLineArea*100}%"></i></div>
+            </div>`).join('')}
+        </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border">
+          <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">${icon('trending-up')}Top khách hàng</h3>
+          ${topCust.length ? topCust.map(([name, v], i) => `
+            <div class="flex items-center justify-between py-1.5 border-b last:border-0 text-sm">
+              <div class="min-w-0">
+                <div class="truncate font-semibold text-slate-700">${i+1}. ${esc(name)}</div>
+                <div class="text-xs text-slate-400">${v.count} đơn · ${fmt(v.area)} m²</div>
+              </div>
+              <div class="text-right text-xs font-semibold text-emerald-600 whitespace-nowrap">${fmt(Math.round(v.rev/1e6))} tr</div>
+            </div>`).join('') : '<p class="text-slate-400 text-sm">Chưa có dữ liệu.</p>'}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <div class="bg-white rounded-xl p-5 shadow-sm border">
+          <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">${icon('alert-circle')}Đơn sắp đến hạn (7 ngày)</h3>
+          ${upcoming.length ? upcoming.slice(0,6).map(o => `
+            <div class="flex items-center justify-between py-2 border-b last:border-0 text-sm cursor-pointer hover:bg-slate-50 -mx-2 px-2 rounded" onclick="app.openOrderDetail('${o.id}')">
+              <div class="min-w-0">
+                <div class="font-semibold">${o.id}</div>
+                <div class="text-slate-500 text-xs truncate">${esc(o.customer)}</div>
+              </div>
+              <div class="text-right text-xs whitespace-nowrap">${dueLabel(o.due)}</div>
+            </div>`).join('') : '<p class="text-slate-400 text-sm">Không có đơn nào sắp đến hạn.</p>'}
+        </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border lg:col-span-2">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-700 flex items-center gap-2">${icon('settings-2')}Lệnh sản xuất đang chạy</h3>
+            <button onclick="app.go('lsx')" class="text-xs text-sky-600 font-semibold hover:underline">Xem tất cả →</button>
+          </div>
+          ${running.length ? running.slice(0,5).map(l => {
+            const line = findLine(l.lineId) || state.lines[0];
+            const area = lsxArea(l);
+            return `<div class="flex items-center justify-between py-2 border-b last:border-0 text-sm cursor-pointer hover:bg-slate-50 -mx-2 px-2 rounded" onclick="app.openLsxEdit('${l.id}')">
+              <div class="min-w-0">
+                <div class="font-semibold">${l.id} <span class="text-slate-400 font-normal">— ${esc(line.name)}</span></div>
+                <div class="text-slate-500 text-xs">${l.core} ${l.thickness}mm ${l.finish} · ${l.orderIds.length} đơn · ${fmt(area)} m²</div>
+              </div>
+              <span class="pill ${LSX_STATUS_CLASS[l.status]} whitespace-nowrap">${LSX_STATUS[l.status]}</span>
+            </div>`;
+          }).join('') : '<p class="text-slate-400 text-sm">Chưa có LSX nào.</p>'}
+        </div>
+      </div>`;
+  },
+  filterStatus(st){ ordersFilter = {q:'', status:st}; this.go('orders'); },
+
+  /* ---------- orders ---------- */
+  renderOrders(){
+    const f = ordersFilter;
+    const rows = state.orders
+      .filter(o => {
+        if(f.status && o.status !== f.status) return false;
+        const q = f.q.trim().toLowerCase();
+        if(q && !(o.id.toLowerCase().includes(q) || o.customer.toLowerCase().includes(q))) return false;
+        return true;
+      })
+      .sort((a,b) => b.id.localeCompare(a.id));
+
+    $('#view-orders').innerHTML = `
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <input type="text" placeholder="Tìm theo mã / khách hàng..." value="${esc(f.q)}"
+          oninput="app.setFilter('q', this.value)" class="border rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-sky-300">
+        <select onchange="app.setFilter('status', this.value)" class="border rounded-lg px-3 py-2 text-sm">
+          <option value="">Tất cả trạng thái</option>
+          ${Object.keys(STATUS).map(k => `<option value="${k}" ${f.status===k?'selected':''}>${STATUS[k]}</option>`).join('')}
+        </select>
+        <div class="ml-auto flex gap-2">
+          <button id="btn-new-order" onclick="app.openOrderForm()" class="bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">+ Tạo đơn hàng</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border overflow-auto">
+        <table class="tbl w-full">
+          <thead><tr>
+            <th>Mã</th><th>Khách hàng</th><th>Quy cách</th><th>Kích thước</th><th>SL</th><th>DT (m²)</th>
+            <th>Hạn giao</th><th>Ưu tiên</th><th>Trạng thái</th><th>LSX</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(o => {
+              const l = lsxOfOrder(o.id);
+              return `<tr onclick="app.openOrderDetail('${o.id}')">
+                <td class="font-semibold">${o.id}</td>
+                <td>${esc(o.customer)}</td>
+                <td>${o.core} · ${o.thickness}mm · ${o.finish}</td>
+                <td>${o.width} × ${o.length} m</td>
+                <td>${fmt(o.qty)}</td>
+                <td>${fmt(o.area)}</td>
+                <td>${dueLabel(o.due)}</td>
+                <td>${prioBadge(o.prio)}</td>
+                <td>${statusBadge(o.status)}</td>
+                <td>${l ? `<span class="text-sky-600 font-semibold">${l.id}</span>` : '<span class="text-slate-300">—</span>'}</td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="10" class="text-center text-slate-400 py-8">Không có đơn hàng phù hợp.</td></tr>'}
+          </tbody>
+        </table>
+      </div>`;
+  },
+  setFilter(k, v){ ordersFilter[k] = v; this.renderOrders(); },
+
+  /* ---------- order form (create / edit) ---------- */
+  openOrderForm(id){
+    const o = id ? findOrder(id) : null;
+    const opt = (arr, cur) => arr.map(v => `<option value="${v}" ${String(cur)===String(v)?'selected':''}>${v}</option>`).join('');
+    openModal(`
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="font-bold text-lg">${o ? 'Sửa đơn hàng '+o.id : 'Tạo đơn hàng mới'}</h3>
+        <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+      </div>
+      <div class="p-6 grid grid-cols-2 gap-4 text-sm">
+        <div class="col-span-2"><label class="block text-slate-600 mb-1">Khách hàng *</label>
+          <input id="f-customer" type="text" value="${o?esc(o.customer):''}" class="w-full border rounded-lg px-3 py-2" placeholder="Công ty TNHH ..."></div>
+        <div><label class="block text-slate-600 mb-1">Loại tôn</label><select id="f-core" class="w-full border rounded-lg px-3 py-2">${opt(CORES, o?o.core:CORES[0])}</select></div>
+        <div><label class="block text-slate-600 mb-1">Màu sắc</label><select id="f-finish" class="w-full border rounded-lg px-3 py-2">${opt(FINISHES, o?o.finish:FINISHES[0])}</select></div>
+        <div><label class="block text-slate-600 mb-1">Độ dày BMT (mm)</label><select id="f-thick" class="w-full border rounded-lg px-3 py-2">${opt(THICKNESS, o?o.thickness:THICKNESS[1])}</select></div>
+        <div><label class="block text-slate-600 mb-1">Ưu tiên</label><select id="f-prio" class="w-full border rounded-lg px-3 py-2">
+          ${Object.keys(PRIORITIES).map(k => `<option value="${k}" ${o&&o.prio===k?'selected':''}>${PRIORITIES[k]}</option>`).join('')}</select></div>
+        <div><label class="block text-slate-600 mb-1">Khổ hữu ích (m) *</label><input id="f-w" type="number" step="0.001" min="0.1" value="${o?o.width:0.985}" class="w-full border rounded-lg px-3 py-2"></div>
+        <div><label class="block text-slate-600 mb-1">Chiều dài (m) *</label><input id="f-l" type="number" step="0.01" min="0.1" value="${o?o.length:3}" class="w-full border rounded-lg px-3 py-2"></div>
+        <div><label class="block text-slate-600 mb-1">Số lượng (tấm) *</label><input id="f-qty" type="number" min="1" value="${o?o.qty:100}" class="w-full border rounded-lg px-3 py-2"></div>
+        <div><label class="block text-slate-600 mb-1">Hạn giao</label><input id="f-due" type="datetime-local" value="${o?o.due+'T'+(o.dueTime||DEFAULT_DUE_TIME):dateOffset(7)+'T'+DEFAULT_DUE_TIME}" class="w-full border rounded-lg px-3 py-2">
+          <p class="text-xs text-slate-400 mt-1">Giờ trống = cuối ngày (${DEFAULT_DUE_TIME})</p></div>
+        <div class="col-span-2"><label class="block text-slate-600 mb-1">Ghi chú</label><textarea id="f-note" rows="2" class="w-full border rounded-lg px-3 py-2">${o?esc(o.note):''}</textarea></div>
+        <div id="f-err" class="col-span-2 text-red-600 text-sm"></div>
+      </div>
+      <div class="px-6 py-4 border-t flex justify-end gap-2">
+        <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg border text-sm">Hủy</button>
+        <button onclick="app.saveOrder('${o?o.id:''}')" class="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 rounded-lg text-sm font-semibold">Lưu</button>
+      </div>`);
+  },
+  saveOrder(id){
+    const v = k => $('#f-'+k).value.trim();
+    const num = k => parseFloat(v(k));
+    const err = m => { $('#f-err').textContent = m; };
+    if(!v('customer')) return err('Vui lòng nhập tên khách hàng.');
+    if(!(num('w') > 0) || !(num('l') > 0) || !(num('qty') > 0)) return err('Kích thước và số lượng phải lớn hơn 0.');
+
+    const data = {
+      customer:v('customer'), core:v('core'), finish:v('finish'), thickness:+v('thick'), prio:v('prio'),
+      width:num('w'), length:num('l'), qty:num('qty'),
+      due:(v('due').split('T')[0]) || dateOffset(7),
+      dueTime:v('due').split('T')[1] || '', note:v('note')
+    };
+    data.area = +(data.width*data.length*data.qty).toFixed(2);
+    if(id){
+      Object.assign(findOrder(id), data);
+      toast('Đã cập nhật đơn hàng '+id);
+    } else {
+      const o = {id:'SO-2024-'+String(state.seq.order++).padStart(4,'0'), status:'draft', createdAt:todayStr(), ...data};
+      state.orders.push(o);
+      toast('Đã tạo đơn hàng '+o.id+' (Nháp)');
+    }
+    closeModal(); this.renderAll();
+  },
+
+  /* ---------- order detail ---------- */
+  openOrderDetail(id){
+    const o = findOrder(id);
+    const l = lsxOfOrder(id);
+    const line = l ? findLine(l.lineId) : null;
+    const actions = (FLOW[o.status] || []).map(n =>
+      `<button onclick="app.setOrderStatus('${o.id}','${n}')" class="px-3 py-1.5 rounded-lg text-sm font-semibold ${n==='canceled'?'bg-red-100 text-red-700 hover:bg-red-200':'bg-sky-100 text-sky-700 hover:bg-sky-200'}">${ACTION_LABEL[n]}</button>`).join('');
+    openModal(`
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="font-bold text-lg">Đơn hàng ${o.id} ${statusBadge(o.status)}</h3>
+        <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+      </div>
+      <div class="p-6 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+        <div><span class="text-slate-500">Khách hàng:</span> <b>${esc(o.customer)}</b></div>
+        <div><span class="text-slate-500">Ngày tạo:</span> ${fmtDate(o.createdAt)}</div>
+        <div><span class="text-slate-500">Quy cách:</span> ${o.core} · ${o.thickness}mm · ${o.finish}</div>
+        <div><span class="text-slate-500">Kích thước:</span> ${o.width} × ${o.length} m</div>
+        <div><span class="text-slate-500">Số lượng:</span> ${fmt(o.qty)} tấm</div>
+        <div><span class="text-slate-500">Diện tích:</span> <b>${fmt(o.area)} m²</b></div>
+        <div><span class="text-slate-500">Hạn giao:</span> ${fmtDate(o.due)}${o.dueTime?' lúc <b>'+o.dueTime+'</b>':''} (${dueLabel(o.due)})
+          ${dueRiskBadge(o)}</div>
+        <div><span class="text-slate-500">Ưu tiên:</span> ${prioBadge(o.prio)}</div>
+        <div class="col-span-2"><span class="text-slate-500">Ghi chú:</span> ${esc(o.note) || '—'}</div>
+        <div class="col-span-2"><span class="text-slate-500">Lệnh sản xuất:</span>
+          ${l ? `<b class="text-sky-600">${l.id}</b> — ${esc(line.name)} · ${LSX_STATUS[l.status]}` : '<span class="text-slate-400">chưa có</span>'}</div>
+      </div>
+      <div class="px-6 pb-2">
+        <h4 class="font-semibold text-slate-700 mb-2">BOM nguyên liệu (ước tính)</h4>
+        <table class="tbl w-full">
+          <thead><tr><th>Vật liệu</th><th>Quy cách</th><th>Số lượng</th><th>Đơn vị</th></tr></thead>
+          <tbody>${bomFor(o).map(b => `<tr><td>${b.name}</td><td>${b.spec}</td><td>${fmt(b.qty)}</td><td>${b.unit}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="px-6 py-4 border-t mt-4 flex flex-wrap gap-2 justify-between">
+        <div class="flex gap-2 flex-wrap">${actions || '<span class="text-slate-400 text-sm">Không có thao tác tiếp theo.</span>'}</div>
+        <button onclick="app.openOrderForm('${o.id}')" class="px-4 py-1.5 rounded-lg border text-sm font-semibold hover:bg-gray-50">✎ Sửa đơn</button>
+      </div>`, true);
+  },
+  setOrderStatus(id, st){
+    const o = findOrder(id);
+    o.status = st;
+    const l = lsxOfOrder(id);
+    if(l){
+      if(st === 'in_production' && l.status === 'planned') l.status = 'in_production';
+      if(st === 'finished' && l.status === 'in_production' && l.orderIds.every(oid => { const x = findOrder(oid); return !x || x.status === 'finished'; })) l.status = 'finished';
+    }
+    toast(`${id} → ${STATUS[st]}`);
+    closeModal(); this.renderAll();
+  },
+
+  /* ---------- LSX screen ---------- */
+  renderLsx(){
+    const unassigned = unassignedReleased();
+    const cards = state.lsx
+      .slice().sort((a,b) => a.id.localeCompare(b.id))
+      .map(l => {
+        const line = findLine(l.lineId) || state.lines[0];
+        const area = lsxArea(l);
+        const pct = Math.min(100, area / line.capacity * 100);
+        const barColor = pct > 100 ? 'bg-red-500' : pct > 85 ? 'bg-amber-500' : 'bg-emerald-500';
+        const acts = [];
+        if(l.status === 'planned') acts.push(`<button onclick="app.lsxStart('${l.id}')" class="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-amber-200">▶ Bắt đầu SX</button>`);
+        if(l.status === 'in_production') acts.push(`<button onclick="app.lsxFinish('${l.id}')" class="bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-green-200">✔ Hoàn thành</button>`);
+        acts.push(`<button onclick="app.openLsxEdit('${l.id}')" class="border px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50">✎ Sửa</button>`);
+        if(l.status !== 'in_production' && l.status !== 'finished') acts.push(`<button onclick="app.lsxDelete('${l.id}')" class="text-red-600 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-50">Xóa</button>`);
+        return `
+          <div class="bg-white rounded-xl shadow-sm border p-5">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-3">
+                <h3 class="font-bold text-lg text-slate-700">${l.id}</h3>
+                <span class="pill ${LSX_STATUS_CLASS[l.status]}">${LSX_STATUS[l.status]}</span>
+              </div>
+              <div class="text-sm text-slate-500">${fmtDate(l.plannedStart)} → ${fmtDate(l.plannedEnd)}</div>
+            </div>
+            <div class="mt-3 text-sm text-slate-600">
+              ${l.core} · ${l.thickness}mm · ${l.finish} — <b>${esc(line.name)}</b>
+              <span class="text-slate-400">(công suất ${fmt(line.capacity)} m²)</span>
+            </div>
+            <div class="mt-2 flex items-center gap-3 text-sm">
+              <span>${l.orderIds.length} đơn · <b>${fmt(area)} m²</b></span>
+              <div class="bar flex-1"><i class="${barColor}" style="width:${pct}%"></i></div>
+              <span class="text-slate-500">${Math.round(pct)}%</span>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-50 rounded-lg px-3 py-2">
+                <div class="text-slate-500 flex items-center gap-1">${icon('clock')} Khung giờ</div>
+                <div class="font-semibold text-slate-700">${fmtDate(l.plannedStart)} ${l.plannedStartH||'08:00'} → ${fmtDate(l.plannedEnd)} ${l.plannedEndH||'17:00'}</div>
+              </div>
+              <div class="bg-slate-50 rounded-lg px-3 py-2">
+                <div class="text-slate-500 flex items-center gap-1">${icon('gauge')} Tiến độ</div>
+                <div class="font-semibold text-slate-700">${fmt(l.actualArea||0)} / ${fmt(area)} m² · ${lsxDonePct(l)}%</div>
+              </div>
+            </div>
+            ${(() => {
+              const risk = canMakeDue(l);
+              if(!risk) return '';
+              if(l.status === 'finished') return `<div class="mt-2 text-xs text-emerald-600 flex items-center gap-1">${icon('check-circle-2')} Đã hoàn thành</div>`;
+              if(risk.ok) return `<div class="mt-2 text-xs text-emerald-600 flex items-center gap-1">${icon('check-circle-2')} Đủ thời gian — dư ${risk.slack.toFixed(1)}h trước due (${risk.earliest.id})</div>`;
+              return `<div class="mt-2 text-xs text-red-600 flex items-center gap-1 font-semibold">${icon('alert-triangle')} Nguy cơ trễ: cần ${risk.hoursNeeded.toFixed(1)}h nhưng chỉ còn ${risk.hoursAvail.toFixed(1)}h (due ${risk.earliest.id} ${risk.earliest.dueTime||''})</div>`;
+            })()}
+            <div class="mt-3 flex flex-wrap gap-2">${acts.join('')}</div>
+          </div>`;
+      }).join('');
+
+    $('#view-lsx').innerHTML = `
+      <div class="flex flex-wrap items-center gap-3 mb-5">
+        <button id="btn-auto-group" onclick="app.autoGroup()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg">
+          ⚡ Tự động gộp đơn thành LSX
+        </button>
+        <button id="btn-new-lsx" onclick="app.openLsxCreate()" class="border text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-gray-50">+ Tạo LSX thủ công</button>
+        <span class="text-sm text-slate-500 ml-auto">
+          ${unassigned.length} đơn đã phát hành chưa có LSX
+          ${unassigned.length ? `(<a href="javascript:void(0)" class="text-sky-600 font-semibold" onclick="app.filterStatus('released')">xem</a>)` : ''}
+        </span>
+      </div>
+      ${state.lsx.length ? `<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">${cards}</div>`
+        : `<div class="bg-white rounded-xl border p-12 text-center text-slate-400">
+             Chưa có lệnh sản xuất nào. Bấm <b>"Tự động gộp"</b> để hệ thống gom các đơn cùng quy cách thành LSX.
+           </div>`}`;
+  },
+
+  /* ---------- auto grouping ---------- */
+  autoGroup(){
+    const avail = unassignedReleased();
+    if(!avail.length){ toast('Không có đơn hàng nào đã phát hành chưa có LSX.'); return; }
+    const groups = {};
+    avail.forEach(o => { const k = groupKey(o); (groups[k] = groups[k] || []).push(o); });
+    const created = [];
+    Object.keys(groups).sort().forEach(k => {
+      const arr = groups[k].sort((a,b) => PRIO_RANK[a.prio] - PRIO_RANK[b.prio] || a.due.localeCompare(b.due));
+      let cur = null, rem = 0;
+      arr.forEach(o => {
+        if(cur && rem >= o.area - 1e-6){ cur.orderIds.push(o.id); rem -= o.area; return; }
+        const line = state.lines[linePtr % state.lines.length]; linePtr++;
+        cur = { id:'LSX-2024-'+String(state.seq.lsx++).padStart(2,'0'), lineId:line.id, groupKey:k, core:o.core, thickness:o.thickness, finish:o.finish,
+                orderIds:[o.id], status:'planned', plannedStart:todayStr(), plannedEnd:dateOffset(2), createdAt:todayStr() };
+        rem = line.capacity - o.area;
+        state.lsx.push(cur); created.push(cur);
+      });
+    });
+    this.renderAll();
+    toast(`Đã tạo ${created.length} LSX từ ${avail.length} đơn hàng.`);
+  },
+
+  /* ---------- LSX create / edit ---------- */
+  openLsxCreate(){
+    const opt = (arr, cur) => arr.map(v => `<option value="${v}" ${String(cur)===String(v)?'selected':''}>${v}</option>`).join('');
+    openModal(`
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="font-bold text-lg">Tạo LSX thủ công</h3>
+        <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+      </div>
+      <div class="p-6 grid grid-cols-2 gap-4 text-sm">
+        <div><label class="block text-slate-600 mb-1">Loại tôn</label><select id="c-core" class="w-full border rounded-lg px-3 py-2">${opt(CORES, CORES[0])}</select></div>
+        <div><label class="block text-slate-600 mb-1">Màu sắc</label><select id="c-finish" class="w-full border rounded-lg px-3 py-2">${opt(FINISHES, FINISHES[0])}</select></div>
+        <div><label class="block text-slate-600 mb-1">Độ dày BMT (mm)</label><select id="c-thick" class="w-full border rounded-lg px-3 py-2">${opt(THICKNESS, THICKNESS[1])}</select></div>
+        <div><label class="block text-slate-600 mb-1">Dây chuyền</label><select id="c-line" class="w-full border rounded-lg px-3 py-2">
+          ${state.lines.map(l => `<option value="${l.id}">${esc(l.name)} — ${fmt(l.capacity)} m²</option>`).join('')}</select></div>
+        <div><label class="block text-slate-600 mb-1">Bắt đầu dự kiến</label><input id="c-start" type="date" value="${todayStr()}" class="w-full border rounded-lg px-3 py-2"></div>
+        <div><label class="block text-slate-600 mb-1">Kết thúc dự kiến</label><input id="c-end" type="date" value="${dateOffset(2)}" class="w-full border rounded-lg px-3 py-2"></div>
+        <p class="col-span-2 text-slate-400 text-xs">Sau khi tạo, bạn có thể thêm/bớt đơn hàng trong LSX bằng nút "Sửa".</p>
+      </div>
+      <div class="px-6 py-4 border-t flex justify-end gap-2">
+        <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg border text-sm">Hủy</button>
+        <button onclick="app.saveLsxCreate()" class="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 rounded-lg text-sm font-semibold">Tạo</button>
+      </div>`);
+  },
+  saveLsxCreate(){
+    const core = $('#c-core').value, finish = $('#c-finish').value, thickness = +$('#c-thick').value;
+    const l = { id:'LSX-2024-'+String(state.seq.lsx++).padStart(2,'0'), lineId:$('#c-line').value, groupKey:`${core}|${thickness}|${finish}`,
+      core, thickness, finish, orderIds:[], status:'planned',
+      plannedStart:$('#c-start').value || todayStr(), plannedEnd:$('#c-end').value || dateOffset(2), createdAt:todayStr() };
+    state.lsx.push(l);
+    closeModal(); this.renderAll();
+    toast('Đã tạo '+l.id+'. Bấm "Sửa" để thêm đơn hàng.');
+  },
+  openLsxEdit(id){
+    const l = state.lsx.find(x => x.id === id);
+    const line = findLine(l.lineId) || state.lines[0];
+    const area = lsxArea(l);
+    const pct = Math.min(100, area / line.capacity * 100);
+    const over = area > line.capacity;
+    const members = l.orderIds.map(findOrder).filter(Boolean);
+    const addable = state.orders.filter(o => o.status === 'released' && !lsxOfOrder(o.id) && !l.orderIds.includes(o.id));
+
+    openModal(`
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="font-bold text-lg">Sửa LSX ${l.id} <span class="pill ${LSX_STATUS_CLASS[l.status]}">${LSX_STATUS[l.status]}</span></h3>
+        <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+      </div>
+      <div class="p-6 text-sm space-y-4">
+        <div class="grid grid-cols-3 gap-4">
+          <div><label class="block text-slate-600 mb-1">Nhóm quy cách</label>
+            <div class="border rounded-lg px-3 py-2 bg-gray-50">${l.core} · ${l.thickness}mm · ${l.finish}</div></div>
+          <div><label class="block text-slate-600 mb-1">Dây chuyền</label>
+            <select id="e-line" class="w-full border rounded-lg px-3 py-2">
+              ${state.lines.map(x => `<option value="${x.id}" ${x.id===l.lineId?'selected':''}>${esc(x.name)} — ${fmt(x.capacity)} m²</option>`).join('')}
+            </select></div>
+          <div><label class="block text-slate-600 mb-1">Trạng thái</label>
+            <select id="e-status" class="w-full border rounded-lg px-3 py-2">
+              ${Object.keys(LSX_STATUS).map(k => `<option value="${k}" ${l.status===k?'selected':''}>${LSX_STATUS[k]}</option>`).join('')}
+            </select></div>
+          <div><label class="block text-slate-600 mb-1">Bắt đầu</label><input id="e-start" type="datetime-local" value="${l.plannedStart}T${l.plannedStartH||'08:00'}" class="w-full border rounded-lg px-3 py-2"></div>
+          <div><label class="block text-slate-600 mb-1">Kết thúc</label><input id="e-end" type="datetime-local"${l.plannedEnd}T${l.plannedEndH||'17:00'}" class="w-full border rounded-lg px-3 py-2"></div>
+        </div>
+        <div>
+          <div class="flex items-center gap-3 mb-1">
+            <span class="text-slate-600">Tải trọng: <b>${fmt(area)} / ${fmt(line.capacity)} m²</b></span>
+            <div class="bar flex-1"><i class="${over?'bg-red-500':pct>85?'bg-amber-500':'bg-emerald-500'}" style="width:${pct}%"></i></div>
+          </div>
+          ${over ? '<p class="text-red-600 text-xs">⚠ Vượt công suất dây chuyền.</p>' : ''}
+        </div>
+        <div>
+          <h4 class="font-semibold text-slate-700 mb-2">Đơn hàng trong LSX (${members.length})</h4>
+          <table class="tbl w-full">
+            <thead><tr><th>Mã</th><th>Khách hàng</th><th>DT (m²)</th><th>Ưu tiên</th><th>Hạn</th><th></th></tr></thead>
+            <tbody>
+              ${members.map(o => `<tr class="hover:bg-white">
+                <td class="font-semibold">${o.id}</td><td>${esc(o.customer)}</td><td>${fmt(o.area)}</td>
+                <td>${prioBadge(o.prio)}</td><td>${dueLabel(o.due)}</td>
+                <td><button onclick="app.lsxRemoveOrder('${l.id}','${o.id}')" class="text-red-600 text-sm hover:underline">Gỡ</button></td>
+              </tr>`).join('') || '<tr><td colspan="6" class="text-center text-slate-400 py-4">Chưa có đơn hàng nào.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div class="flex gap-2 items-end">
+          <div class="flex-1"><label class="block text-slate-600 mb-1">Thêm đơn hàng (đã phát hành, chưa thuộc LSX)</label>
+            <select id="e-add" class="w-full border rounded-lg px-3 py-2">
+              ${addable.map(o => `<option value="${o.id}">${o.id} — ${esc(o.customer)} — ${o.core}|${o.thickness}|${o.finish} — ${fmt(o.area)} m²</option>`).join('') || '<option value="">(không còn đơn phù hợp)</option>'}
+            </select></div>
+          <button onclick="app.lsxAddOrder('${l.id}')" class="border px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50" ${addable.length?'':'disabled'}>Thêm</button>
+        </div>
+        <p id="e-err" class="text-red-600 text-sm"></p>
+      </div>
+      <div class="px-6 py-4 border-t flex justify-between">
+        <button onclick="app.lsxDelete('${l.id}')" class="text-red-600 text-sm font-semibold hover:underline">Xóa LSX</button>
+        <div class="flex gap-2">
+          <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg border text-sm">Đóng</button>
+          <button onclick="app.saveLsxEdit('${l.id}')" class="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 rounded-lg text-sm font-semibold">Lưu thay đổi</button>
+        </div>
+      </div>`, true);
+  },
+  lsxAddOrder(lsxId){
+    const sel = $('#e-add');
+    if(!sel || !sel.value) return;
+    const l = state.lsx.find(x => x.id === lsxId);
+    l.orderIds.push(sel.value);
+    save(); this.openLsxEdit(lsxId);
+    toast('Đã thêm '+sel.value+' vào '+lsxId);
+  },
+  lsxRemoveOrder(lsxId, orderId){
+    const l = state.lsx.find(x => x.id === lsxId);
+    l.orderIds = l.orderIds.filter(x => x !== orderId);
+    save(); this.openLsxEdit(lsxId);
+    toast('Đã gỡ '+orderId+' khỏi '+lsxId);
+  },
+  saveLsxEdit(id){
+    const l = state.lsx.find(x => x.id === id);
+    const line = findLine($('#e-line').value);
+    const area = lsxArea(l);
+    if(area > line.capacity && !confirm(`Tổng diện tích ${fmt(area)} m² vượt công suất dây chuyền (${fmt(line.capacity)} m²). Lưu tiếp?`)) return;
+    l.lineId = line.id;
+    l.status = $('#e-status').value;
+    const [sD, sH] = ($('#e-start').value || '').split('T');
+    const [eD, eH] = ($('#e-end').value || '').split('T');
+    l.plannedStart = sD || todayStr(); l.plannedStartH = sH || '08:00';
+    l.plannedEnd = eD || dateOffset(2); l.plannedEndH = eH || '17:00';
+    l.setupMin = +$('#e-setup').value || DEFAULT_SETUP_MIN;
+    l.actualArea = +$('#e-actual').value || 0;
+    closeModal(); this.renderAll();
+    toast('Đã lưu '+id);
+  },
+  lsxStart(id){
+    const l = state.lsx.find(x => x.id === id);
+    l.status = 'in_production';
+    l.orderIds.forEach(oid => { const o = findOrder(oid); if(o && o.status === 'released') o.status = 'in_production'; });
+    this.renderAll(); toast(id+' → Đang sản xuất');
+  },
+  lsxFinish(id){
+    const l = state.lsx.find(x => x.id === id);
+    l.status = 'finished';
+    l.orderIds.forEach(oid => { const o = findOrder(oid); if(o && o.status === 'in_production') o.status = 'finished'; });
+    this.renderAll(); toast(id+' → Hoàn thành');
+  },
+  lsxDelete(id){
+    const l = state.lsx.find(x => x.id === id);
+    if(!confirm('Xóa '+id+'? Các đơn hàng sẽ trả về "Đã phát hành".')) return;
+    l.orderIds.forEach(oid => { const o = findOrder(oid); if(o && o.status === 'in_production') o.status = 'released'; });
+    state.lsx = state.lsx.filter(x => x.id !== id);
+    closeModal(); this.renderAll(); toast('Đã xóa '+id);
+  },
+
+  /* ---------- setup ---------- */
+  renderSetup(){
+    const byCore = {};
+    state.orders.forEach(o => {
+      if(['closed','canceled'].includes(o.status)) return;
+      byCore[o.core] = byCore[o.core] || {area:0, rev:0, count:0};
+      byCore[o.core].area += o.area;
+      byCore[o.core].rev  += priceOf(o);
+      byCore[o.core].count++;
+    });
+    const totalRev = Object.values(byCore).reduce((s,x) => s+x.rev, 0);
+
+    $('#view-setup').innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">${icon('bar-chart-3')}Doanh thu ước tính theo dòng sản phẩm <span class="text-xs font-normal text-slate-400">(VND)</span></h3>
+        <table class="tbl w-full">
+          <thead><tr><th>Loại tôn</th><th class="text-right">Số đơn</th><th class="text-right">Diện tích (m²)</th><th class="text-right">Doanh thu (tr)</th><th class="text-right">Tỉ trọng</th></tr></thead>
+          <tbody>
+            ${Object.keys(byCore).sort().map(k => {
+              const v = byCore[k];
+              const pct = totalRev ? (v.rev/totalRev*100).toFixed(1) : 0;
+              return `<tr class="hover:bg-white">
+                <td class="font-semibold">${k}</td>
+                <td class="text-right">${v.count}</td>
+                <td class="text-right">${fmt(v.area)}</td>
+                <td class="text-right font-semibold text-emerald-600">${fmt(Math.round(v.rev/1e6))}</td>
+                <td class="text-right text-slate-500">${pct}%</td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="5" class="text-center text-slate-400 py-4">Không có dữ liệu.</td></tr>'}
+            <tr class="bg-slate-50 font-bold">
+              <td>Tổng</td>
+              <td class="text-right">${state.orders.filter(o => !['closed','canceled'].includes(o.status)).length}</td>
+              <td class="text-right">${fmt(state.orders.filter(o => !['closed','canceled'].includes(o.status)).reduce((s,o)=>s+o.area,0))}</td>
+              <td class="text-right text-emerald-700">${fmt(Math.round(totalRev/1e6))}</td>
+              <td class="text-right">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+          <h3 class="font-bold text-slate-700 mb-4">Dây chuyền sản xuất</h3>
+          <table class="tbl w-full">
+            <thead><tr><th>Tên dây chuyền</th><th>CS / LSX (m²)</th><th>CS/giờ (m²/h)</th><th>Setup (phút)</th></tr></thead>
+            <tbody>
+              ${state.lines.map(l => `<tr class="hover:bg-white">
+                <td>${esc(l.name)}</td>
+                <td><input type="number" min="1" value="${l.capacity}" data-line="${l.id}"
+                    onchange="app.saveLineCapacity('${l.id}', 'capacity', this.value)" class="border rounded px-2 py-1 w-28 text-sm"></td>
+                <td><input type="number" min="1" value="${l.capacityPerHour||150}"
+                    onchange="app.saveLineCapacity('${l.id}', 'capacityPerHour', this.value)" class="border rounded px-2 py-1 w-28 text-sm"></td>
+                <td><input type="number" min="0" value="${l.setupMinutes||DEFAULT_SETUP_MIN}"
+                    onchange="app.saveLineCapacity('${l.id}', 'setupMinutes', this.value)" class="border rounded px-2 py-1 w-24 text-sm"></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+          <p class="text-slate-400 text-xs mt-3">Công suất/LSX dùng để gộp đơn. Công suất/giờ dùng để tính kịp due. Setup = phút đổi quy cách giữa 2 LSX.</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+          <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">${icon('clock')}Ca làm việc</h3>
+          <table class="tbl w-full">
+            <thead><tr><th>Ca</th><th>Bắt đầu</th><th>Kết thúc</th><th class="text-right">Giờ</th></tr></thead>
+            <tbody>
+              ${SHIFTS.map(s => `<tr class="hover:bg-white">
+                <td class="font-semibold">${esc(s.name)}</td>
+                <td><input type="time" value="${s.start}" onchange="app.saveShift('${s.id}','start',this.value)" class="border rounded px-2 py-1 text-sm w-28"></td>
+                <td><input type="time" value="${s.end}" onchange="app.saveShift('${s.id}','end',this.value)" class="border rounded px-2 py-1 text-sm w-28"></td>
+                <td class="text-right text-slate-500">${s.hours}h</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+          <div class="mt-4 text-xs text-slate-500 flex items-center gap-2">
+            ${icon('info')} Đệm giao hàng trước due: <b>${BUFFER_HOURS}h</b> · Setup mặc định: <b>${DEFAULT_SETUP_MIN} phút</b> · Due mặc định: <b>${DEFAULT_DUE_TIME}</b>
+          </div>
+          <hr class="my-5">
+          <h3 class="font-bold text-slate-700 mb-3">Vùng dữ liệu</h3>
+          <button onclick="app.resetData()" class="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-200">Khôi phục dữ liệu demo</button>
+        </div>
+      </div>`;
+  },
+  saveLineCapacity(id, field, val){
+    const l = findLine(id);
+    const n = parseFloat(val);
+    if(l && n >= 0){ l[field] = n; save(); toast('Đã cập nhật '+l.name); }
+  },
+  saveShift(id, field, val){
+    const s = SHIFTS.find(x => x.id === id);
+    if(!s || !val) return;
+    s[field] = val;
+    const [h1,m1] = s.start.split(':').map(Number);
+    const [h2,m2] = s.end.split(':').map(Number);
+    s.hours = ((h2*60+m2 - h1*60-m1 + 1440) % 1440) / 60;
+    toast('Đã cập nhật '+s.name);
+  },
+  resetData(){
+    if(!confirm('Xóa toàn bộ dữ liệu hiện tại và khôi phục dữ liệu demo?')) return;
+    localStorage.removeItem(DB_KEY);
+    state = seed(); linePtr = 0; save();
+    this.go('dashboard'); toast('Đã khôi phục dữ liệu demo');
+  },
+
+  closeModal
+};
+
+/* ============================= Boot ============================= */
+(function boot(){
+  $('#today-label').textContent = fmtDate(todayStr());
+  state = load();
+  if(!state || !state.orders || !state.orders.length){ state = seed(); save(); }
+  app.go('dashboard');
+  refreshIcons();
+})();
+</script>
+<script>window.TUT_AI_ENDPOINT = 'http://localhost:8000';</script>
+<script>
+/* ================= tutorial-engine.js (inlined) ================= */
+const Tut = (() => {
+  'use strict';
+  let tl = [], duration = 0, now = 0, playing = false, rafId = null, lastTs = 0;
+  const fired = new Set(); const pendingClicks = [];
+  let ui = null, recording = null, recChunks = [], onDone = null, pendingMove = null;
+  const cursorXY = { x: -100, y: -100 }; let voiceMuted = false;
+
+  /* ===== 2026: Gemini 2.5 Flash-Lite + Gemini TTS =====
+   * - Backend proxy giữ API_KEY (Node.js). Client chỉ biết endpoint.
+   * - Cấu hình: window.TUT_AI_ENDPOINT = 'https://your-server.com' (mặc định same-origin). */
+  const AI_ENDPOINT = (typeof window !== 'undefined' && window.TUT_AI_ENDPOINT) || '';
+  const TTS_CACHE = new Map();   // text -> Audio
+  let currentAudio = null;
+
+  // Selector của các trường CHỈ xuất hiện sau khi mở modal — bổ sung vào danh sách
+  // gửi Gemini để AI biết đường dẫn điền dữ liệu ví dụ (LSX form, order form...).
+  const AI_EXTRA_SELECTORS = [
+    { selector:'#f-customer', text:'Form đơn hàng: input tên khách hàng', kind:'input' },
+    { selector:'#f-core',     text:'Form đơn hàng: select loại tôn (BMLock/BMSeamlock/Industrial/Residential)', kind:'select' },
+    { selector:'#f-finish',   text:'Form đơn hàng: select màu sắc', kind:'select' },
+    { selector:'#f-thick',    text:'Form đơn hàng: select độ dày BMT (0.35-0.60mm)', kind:'select' },
+    { selector:'#f-prio',     text:'Form đơn hàng: select ưu tiên (cao/tb/thap)', kind:'select' },
+    { selector:'#f-w',        text:'Form đơn hàng: input chiều rộng (m)', kind:'input' },
+    { selector:'#f-l',        text:'Form đơn hàng: input chiều dài (m)', kind:'input' },
+    { selector:'#f-qty',      text:'Form đơn hàng: input số lượng tấm', kind:'input' },
+    { selector:'#f-due',      text:'Form đơn hàng: input hạn giao (datetime-local)', kind:'input' },
+    { selector:'#f-note',     text:'Form đơn hàng: textarea ghi chú', kind:'textarea' },
+    { selector:'[onclick*="saveOrder"]', text:'Form đơn hàng: nút Lưu', kind:'button' },
+    { selector:'#c-core',     text:'Form LSX: select loại tôn', kind:'select' },
+    { selector:'#c-finish',   text:'Form LSX: select màu sắc', kind:'select' },
+    { selector:'#c-thick',    text:'Form LSX: select độ dày BMT', kind:'select' },
+    { selector:'#c-line',     text:'Form LSX: select dây chuyền (L1/L2/L3)', kind:'select' },
+    { selector:'#c-start',    text:'Form LSX: input ngày bắt đầu', kind:'input' },
+    { selector:'#c-end',      text:'Form LSX: input ngày kết thúc', kind:'input' },
+    { selector:'[onclick*="saveLsxCreate"]', text:'Form LSX: nút Tạo', kind:'button' },
+  ];
+
+  function ttsUrl()        { return AI_ENDPOINT + '/api/tts'; }
+  function timelineUrl()   { return AI_ENDPOINT + '/api/generate-timeline'; }
+
+  async function speakViaGemini(text) {
+    if (!text) return false;
+    try {
+      let audio = TTS_CACHE.get(text);
+      if (!audio) {
+        const res = await fetch(ttsUrl(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data || !data.audioContent) return false;
+        const mime = data.mimeType || 'audio/mp3';
+        audio = new Audio('data:' + mime + ';base64,' + data.audioContent);
+        TTS_CACHE.set(text, audio);
+      }
+      if (currentAudio) { try { currentAudio.pause(); } catch(e){} }
+      currentAudio = audio;
+      try { audio.currentTime = 0; } catch(e){}
+      await audio.play();
+      return true;
+    } catch(e) {
+      console.warn('[TTS] Edge-TTS thất bại, thử SpeechSynthesis trình duyệt:', e);
+      try {
+        if (window.speechSynthesis) {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = 'vi-VN';
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+          return true;
+        }
+      } catch(_) {}
+      return false;
+    }
+  }
+
+  // Prefetch TTS (per-utterance cache): nạp trước tất cả câu voice → phát không bị ngắt
+  async function prefetchTTS(timeline, onProgress) {
+    const texts = [...new Set((timeline || []).filter(a => a.act === 'voice' && a.text).map(a => a.text))];
+    if (!texts.length) return;
+    let done = 0;
+    await Promise.all(texts.map(async t => {
+      if (TTS_CACHE.has(t)) { done++; return; }
+      try {
+        const res = await fetch(ttsUrl(), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: t })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.audioContent) {
+            const mime = data.mimeType || 'audio/mp3';
+            const audio = new Audio('data:' + mime + ';base64,' + data.audioContent);
+            audio.preload = 'auto';
+            TTS_CACHE.set(t, audio);
+          }
+        }
+      } catch(e) { console.warn('[TTS prefetch]', e); }
+      done++;
+      if (typeof onProgress === 'function') onProgress(done, texts.length);
+    }));
+  }
+
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // Trích xuất cấu trúc DOM hiện tại để gửi AI (kèm selector ẩn trong modal)
+  function buildHtmlStructure() {
+    const nodes = $$('button, a, input, select, textarea, [data-tut]').slice(0, 150);
+    const list = nodes.map(el => ({
+      tagName: el.tagName.toLowerCase(),
+      id: el.id || '',
+      className: (typeof el.className === 'string' ? el.className : '') || '',
+      dataTut: el.getAttribute('data-tut') || '',
+      text: (el.innerText || el.placeholder || '').trim().slice(0, 80),
+      selector: el.getAttribute('data-tut')
+        ? `[data-tut="${el.getAttribute('data-tut')}"]`
+        : (el.id ? '#' + el.id
+        : (el.className && typeof el.className === 'string'
+            ? '.' + el.className.trim().split(/\s+/)[0]
+            : el.tagName.toLowerCase()))
+    }));
+    AI_EXTRA_SELECTORS.forEach(x => list.push({
+      tagName: x.kind === 'select' ? 'select' : (x.kind === 'textarea' ? 'textarea' : (x.kind === 'button' ? 'button' : 'input')),
+      id: x.selector.replace(/^#/, ''),
+      className: '',
+      dataTut: '',
+      text: x.text,
+      selector: x.selector
+    }));
+    return list;
+  }
+  function findEl(sel) {
+    if (typeof sel === 'string') return $(sel);
+    if (typeof sel === 'function') return sel();
+    return sel;
+  }
+  function elRect(el) {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { l:r.left, t:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  }
+
+  function ensureUI() {
+    if (ui) return ui;
+    const root = document.createElement('div');
+    root.id = 'tut-root';
+    root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;';
+    root.innerHTML = `
+      <style>
+        #tut-spot{position:fixed;border-radius:12px;pointer-events:none;
+          box-shadow:0 0 0 9999px rgba(15,23,42,.68),0 0 0 3px #0ea5e9 inset;
+          transition:top .45s cubic-bezier(.4,0,.2,1),left .45s cubic-bezier(.4,0,.2,1),
+                     width .45s cubic-bezier(.4,0,.2,1),height .45s cubic-bezier(.4,0,.2,1),opacity .3s;
+          opacity:0;z-index:100000;}
+        #tut-cursor{position:fixed;width:26px;height:26px;pointer-events:none;
+          filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));z-index:100002;opacity:0;transition:opacity .3s;}
+        #tut-ring{position:fixed;width:48px;height:48px;border-radius:50%;
+          border:3px solid #0ea5e9;pointer-events:none;opacity:0;
+          transform:translate(-50%,-50%) scale(.6);z-index:100001;}
+        #tut-ring.pulse{animation:tutPulse .7s ease-out;}
+        @keyframes tutPulse{0%{opacity:1;transform:translate(-50%,-50%) scale(.4);}
+                            100%{opacity:0;transform:translate(-50%,-50%) scale(1.7);}}
+        #tut-tip{position:fixed;max-width:340px;background:#0f172a;color:#fff;
+          padding:12px 16px;border-radius:12px;font:14px/1.5 'Segoe UI',sans-serif;
+          box-shadow:0 12px 30px rgba(0,0,0,.35);opacity:0;transition:opacity .3s;z-index:100003;}
+        #tut-tip::after{content:'';position:absolute;width:10px;height:10px;background:#0f172a;
+          transform:rotate(45deg);bottom:-5px;left:24px;}
+        /* 2026 — CSS Anchor Positioning: tooltip tự “dính” vào phần tử đích.
+           Không cần JS đo lại toạ độ khi scroll / resize / zoom. */
+        @supports (anchor-name: --x) {
+          #tut-tip[data-anchored]{
+            position: fixed;
+            inset: auto;
+            position-anchor: --tut-anchor;
+            left: anchor(--tut-anchor center);
+            top:  anchor(--tut-anchor bottom);
+            translate: -50% 10px;
+            position-visibility: anchors-visible;
+            position-try-fallbacks: flip-block, flip-inline;
+            margin: 0;
+          }
+          #tut-tip[data-anchored="above"]{
+            top: auto;
+            bottom: anchor(--tut-anchor top);
+            translate: -50% -10px;
+          }
+          #tut-tip[data-anchored]::after{ display:none; }
+          .tut-anchored{ anchor-name: --tut-anchor; }
+        }
+        #tut-bar{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+          background:rgba(15,23,42,.95);color:#fff;border-radius:9999px;padding:8px 14px;
+          display:none;gap:12px;align-items:center;font:13px 'Segoe UI',sans-serif;
+          pointer-events:auto;box-shadow:0 12px 34px rgba(0,0,0,.4);backdrop-filter:blur(8px);z-index:100004;}
+        #tut-bar button{background:rgba(255,255,255,.14);border:none;color:#fff;
+          padding:5px 11px;border-radius:8px;cursor:pointer;font-size:13px;}
+        #tut-bar button:hover{background:rgba(255,255,255,.28);}
+        #tut-bar .progress{width:180px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;overflow:hidden;}
+        #tut-bar .progress>i{display:block;height:100%;background:#0ea5e9;width:0%;}
+        #tut-bar .t{font-variant-numeric:tabular-nums;min-width:48px;text-align:center;}
+      </style>
+      <div id="tut-spot"></div>
+      <div id="tut-ring"></div>
+      <svg id="tut-cursor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 3 L5 20 L10 15 L14 22 L17 20 L13 13 L20 13 Z"
+              fill="#0f172a" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+      <div id="tut-tip"></div>
+      <div id="tut-bar">
+        <button data-a="toggle">⏸</button>
+        <button data-a="restart">↻</button>
+        <div class="progress"><i></i></div>
+        <span class="t">0.0s</span>
+        <button data-a="close">✕</button>
+      </div>`;
+    document.body.appendChild(root);
+    ui = {
+      root,
+      spot: root.querySelector('#tut-spot'),
+      cursor: root.querySelector('#tut-cursor'),
+      ring: root.querySelector('#tut-ring'),
+      tip: root.querySelector('#tut-tip'),
+      bar: root.querySelector('#tut-bar'),
+      progress: root.querySelector('#tut-bar .progress > i'),
+      timeLabel: root.querySelector('#tut-bar .t'),
+    };
+    ui.bar.addEventListener('click', e => {
+      const a = e.target.dataset.a;
+      if (a === 'toggle')  toggle();
+      if (a === 'restart') { seek(0); play(); }
+      if (a === 'close')   stop();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && playing) stop(); });
+    return ui;
+  }
+
+  function moveCursorTo(x, y, durMs = 500) {
+    pendingMove = { x0: cursorXY.x, y0: cursorXY.y, x1: x, y1: y, t0: performance.now(), dur: durMs };
+  }
+  function updateCursorFrame() {
+    if (!pendingMove) return;
+    const t = Math.min(1, (performance.now() - pendingMove.t0) / pendingMove.dur);
+    const e = 1 - Math.pow(1 - t, 3);
+    cursorXY.x = pendingMove.x0 + (pendingMove.x1 - pendingMove.x0) * e;
+    cursorXY.y = pendingMove.y0 + (pendingMove.y1 - pendingMove.y0) * e;
+    ui.cursor.style.left = cursorXY.x + 'px';
+    ui.cursor.style.top  = cursorXY.y + 'px';
+    if (t >= 1) pendingMove = null;
+  }
+  function snapCursor(x, y) { pendingMove = null; cursorXY.x = x; cursorXY.y = y;
+    if (ui) { ui.cursor.style.left = x + 'px'; ui.cursor.style.top = y + 'px'; } }
+  function showSpotlight(el, pad = 8) {
+    const r = elRect(el); if (!r || !ui) return;
+    ui.spot.style.opacity = '1';
+    ui.spot.style.left   = (r.l - pad) + 'px';
+    ui.spot.style.top    = (r.t - pad) + 'px';
+    ui.spot.style.width  = (r.w + pad*2) + 'px';
+    ui.spot.style.height = (r.h + pad*2) + 'px';
+  }
+  function hideSpotlight() { if (ui) ui.spot.style.opacity = '0'; }
+  function pulseRing(x, y) {
+    if (!ui) return;
+    ui.ring.style.left = x + 'px'; ui.ring.style.top = y + 'px';
+    ui.ring.classList.remove('pulse'); void ui.ring.offsetWidth;
+    ui.ring.classList.add('pulse');
+  }
+  const supportsAnchor = () =>
+    typeof CSS !== 'undefined' && CSS.supports && CSS.supports('anchor-name: --x');
+  let currentAnchorEl = null;
+  function clearAnchor() {
+    if (currentAnchorEl) {
+      currentAnchorEl.classList.remove('tut-anchored');
+      currentAnchorEl = null;
+    }
+    if (ui) {
+      ui.tip.removeAttribute('data-anchored');
+      ui.tip.style.left = ''; ui.tip.style.top = ''; ui.tip.style.bottom = '';
+      ui.tip.style.translate = ''; ui.tip.style.transform = '';
+    }
+  }
+  function setAnchor(el, side) {
+    clearAnchor();
+    if (!el) return false;
+    el.classList.add('tut-anchored');
+    currentAnchorEl = el;
+    ui.tip.setAttribute('data-anchored', side || 'below');
+    ui.tip.style.left = ''; ui.tip.style.top = ''; ui.tip.style.bottom = '';
+    ui.tip.style.translate = ''; ui.tip.style.transform = 'none';
+    return true;
+  }
+  function showTip(text, anchorEl) {
+    if (!ui) return;
+    ui.tip.textContent = text;
+    ui.tip.style.opacity = '1';
+    // 2026 — CSS Anchor Positioning: trình duyệt tự canh vị trí, kể cả khi scroll/resize/zoom
+    if (anchorEl && supportsAnchor()) { setAnchor(anchorEl, 'below'); return; }
+    // Fallback cho trình duyệt cũ (đo toạ độ bằng JS)
+    clearAnchor();
+    ui.tip.style.transform = 'none';
+    const r = anchorEl ? elRect(anchorEl) : null;
+    if (r) {
+      const tw = ui.tip.offsetWidth || 280;
+      ui.tip.style.left = Math.max(12, Math.min(innerWidth - tw - 12, r.cx - tw/2)) + 'px';
+      ui.tip.style.top  = Math.max(12, r.t - (ui.tip.offsetHeight || 60) - 16) + 'px';
+    } else {
+      ui.tip.style.left = '50%'; ui.tip.style.top = '70px';
+      ui.tip.style.transform = 'translateX(-50%)';
+    }
+  }
+  function hideTip() { if (ui) ui.tip.style.opacity = '0'; clearAnchor(); }
+
+  function fireClick(el) {
+    const opt = { bubbles: true, cancelable: true, view: window };
+    el.dispatchEvent(new MouseEvent('mousedown', opt));
+    el.dispatchEvent(new MouseEvent('mouseup',   opt));
+    el.dispatchEvent(new MouseEvent('click',     opt));
+  }
+  const ACT = {
+    focus(a) {
+      const el = findEl(a.sel); if (!el) return;
+      const r = elRect(el);
+      moveCursorTo(r.cx, r.cy, a.moveDur != null ? a.moveDur*1000 : 500);
+      showSpotlight(el, a.pad ?? 8);
+      if (a.text) showTip(a.text, el);
+    },
+    move(a) {
+      const el = findEl(a.sel); if (!el) return;
+      const r = elRect(el);
+      moveCursorTo(r.cx, r.cy, a.dur != null ? a.dur*1000 : 500);
+    },
+    click(a) {
+      const el = findEl(a.sel); if (!el) return;
+      const r = elRect(el);
+      const moveDur = a.moveDur != null ? a.moveDur : 0.5;
+      moveCursorTo(r.cx, r.cy, moveDur*1000);
+      pendingClicks.push({ fireAt: now + moveDur + 0.06, el, x: r.cx, y: r.cy });
+    },
+    scroll(a) {
+      const el = findEl(a.sel); if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: a.block || 'center' });
+    },
+    tip(a) { const el = a.sel ? findEl(a.sel) : null; showTip(a.text || '', el); },
+    fill(a) {
+      const el = findEl(a.sel); if (!el) return;
+      const r = elRect(el);
+      moveCursorTo(r.cx, r.cy, a.moveDur != null ? a.moveDur*1000 : 450);
+      showSpotlight(el, a.pad ?? 8);
+      if (a.text) showTip(a.text, el);
+      const val = String(a.value ?? '');
+      if (!val) return;
+      const delay = a.typeDelay != null ? a.typeDelay : 45;
+      setTimeout(() => {
+        try { el.focus(); } catch(e){}
+        let i = 0;
+        const step = () => {
+          el.value = val.slice(0, i);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          if (i++ < val.length) { setTimeout(step, delay); }
+          else { el.dispatchEvent(new Event('change', { bubbles: true })); }
+        };
+        step();
+      }, 400);
+    },
+    select(a) {
+      const el = findEl(a.sel); if (!el) return;
+      const r = elRect(el);
+      moveCursorTo(r.cx, r.cy, a.moveDur != null ? a.moveDur*1000 : 450);
+      showSpotlight(el, a.pad ?? 8);
+      if (a.text) showTip(a.text, el);
+      const v = String(a.value ?? '');
+      setTimeout(() => {
+        el.value = v;
+        el.dispatchEvent(new Event('input',  { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, 400);
+    },
+    hideTip() { hideTip(); },
+    hideSpot() { hideSpotlight(); },
+    voice(a) {
+      if (voiceMuted) return;
+      speakViaGemini(a.text || '');
+    },
+    zoom(a) {
+      const el = findEl(a.sel); if (!el) return;
+      if (!el.dataset.tutOldTransform) el.dataset.tutOldTransform = el.style.transform || '__EMPTY__';
+      el.style.transition = 'transform .5s cubic-bezier(.4,0,.2,1)';
+      el.style.transformOrigin = 'center center';
+      el.style.transform = `scale(${a.scale || 1.3})`;
+      el.style.zIndex = '99998';
+      if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    },
+    unzoom(a) {
+      const el = findEl(a.sel); if (!el) return;
+      const old = el.dataset.tutOldTransform;
+      el.style.transform = (old && old !== '__EMPTY__') ? old : '';
+      delete el.dataset.tutOldTransform;
+    },
+    wait() {},
+    reset() {
+      hideSpotlight(); hideTip();
+      $$('[data-tut-old-transform]').forEach(el => {
+        const old = el.dataset.tutOldTransform;
+        el.style.transform = (old && old !== '__EMPTY__') ? old : '';
+        delete el.dataset.tutOldTransform;
+      });
+    }
+  };
+
+  function prepare(timeline) {
+    tl = (timeline || []).slice().sort((a, b) => a.t - b.t);
+    duration = tl.reduce((m, a) => Math.max(m, a.t + (a.dur || 0)), 0);
+  }
+  function fireDue() {
+    for (let i = 0; i < tl.length; i++) {
+      if (fired.has(i)) continue;
+      if (tl[i].t <= now) {
+        fired.add(i);
+        try { ACT[tl[i].act]?.(tl[i]); } catch(e) { console.warn('[Tut]', tl[i], e); }
+      }
+    }
+    for (let i = pendingClicks.length - 1; i >= 0; i--) {
+      const p = pendingClicks[i];
+      if (now >= p.fireAt) { pulseRing(p.x, p.y); fireClick(p.el); pendingClicks.splice(i, 1); }
+    }
+  }
+  function loop(ts) {
+    if (!playing) return;
+    if (!lastTs) lastTs = ts;
+    const dt = (ts - lastTs) / 1000; lastTs = ts; now += dt;
+    updateCursorFrame(); fireDue();
+    if (ui && ui.bar.style.display !== 'none') {
+      ui.progress.style.width = duration ? Math.min(100, now/duration*100) + '%' : '0%';
+      ui.timeLabel.textContent = now.toFixed(1) + 's';
+    }
+    if (now >= duration) {
+      playing = false;
+      if (ui) ui.bar.querySelector('[data-a="toggle"]').textContent = '▶';
+      if (recording) setTimeout(() => { try { recording.stop(); } catch(e) {} }, 500);
+      if (typeof onDone === 'function') { const cb = onDone; onDone = null; cb(); }
+      // Tự ẩn thanh điều khiển + spotlight/tooltip sau khi kết thúc
+      const endNow = now;
+      setTimeout(() => {
+        if (playing || now !== endNow) return; // người dùng đã restart/tua lại
+        hideSpotlight(); hideTip();
+        ACT.reset();
+        if (ui) {
+          ui.bar.style.display = 'none';
+          ui.cursor.style.opacity = '0';
+        }
+        now = 0; fired.clear();
+      }, 700);
+      return;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function load(timeline) {
+    ensureUI();
+    prepare(timeline);
+    // Reset trạng thái để lần chạy mới bắt đầu từ 0 (tránh bị kẹt ở cuối timeline cũ)
+    playing = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    pendingClicks.length = 0;
+    fired.clear();
+    ACT.reset();
+    hideSpotlight(); hideTip();
+    snapCursor(-100, -100);
+    now = 0;
+    return API;
+  }
+  function play(fromTime) {
+    ensureUI();
+    if (fromTime != null) seek(fromTime);
+    if (playing) return API;
+    playing = true; lastTs = 0;
+    ui.bar.style.display = 'flex';
+    ui.bar.querySelector('[data-a="toggle"]').textContent = '⏸';
+    ui.cursor.style.opacity = '1';
+    rafId = requestAnimationFrame(loop);
+    return API;
+  }
+  function pause() {
+    playing = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (ui) ui.bar.querySelector('[data-a="toggle"]').textContent = '▶';
+    return API;
+  }
+  function toggle() { playing ? pause() : play(); return API; }
+  function seek(t) {
+    const target = Math.max(0, Math.min(duration, t));
+    playing = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    pendingClicks.length = 0;
+    fired.clear(); ACT.reset(); snapCursor(-100, -100);
+    if (target > 0.001) {
+      for (let i = 0; i < tl.length; i++) {
+        if (tl[i].t > target) break;
+        const a = tl[i];
+        if (a.act === 'focus' || a.act === 'click') {
+          const el = findEl(a.sel);
+          if (el) { const r = elRect(el); snapCursor(r.cx, r.cy); showSpotlight(el, a.pad ?? 8); }
+        } else if (a.act === 'move') {
+          const el = findEl(a.sel);
+          if (el) { const r = elRect(el); snapCursor(r.cx, r.cy); }
+        } else if (a.act === 'zoom') {
+          const el = findEl(a.sel);
+          if (el) { el.style.transformOrigin='center center'; el.style.transform = `scale(${a.scale||1.3})`; }
+        } else if (a.act === 'fill' || a.act === 'select') {
+          const el = findEl(a.sel);
+          if (el) {
+            const r = elRect(el); snapCursor(r.cx, r.cy); showSpotlight(el, a.pad ?? 8);
+            el.value = String(a.value ?? '');
+            el.dispatchEvent(new Event('input',  { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+        fired.add(i);
+      }
+    }
+    now = target;
+    if (ui) {
+      ui.progress.style.width = duration ? (now/duration*100) + '%' : '0%';
+      ui.timeLabel.textContent = now.toFixed(1) + 's';
+    }
+    return API;
+  }
+  function stop() {
+    playing = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null; pendingClicks.length = 0;
+    hideSpotlight(); hideTip();
+    if (ui) { ui.bar.style.display = 'none'; ui.cursor.style.opacity = '0'; }
+    ACT.reset(); now = 0; fired.clear();
+    return API;
+  }
+  function setVoiceMuted(v) { voiceMuted = !!v; return API; }
+
+  // ---- 2026: rrweb-backed recording (DOM-diff, không xin quyền chia sẻ màn hình) ----
+  let rrwebReady = null;
+  function ensureRrweb() {
+    if (rrwebReady) return rrwebReady;
+    rrwebReady = new Promise(resolve => {
+      if (window.rrweb && window.rrweb.record) return resolve(true);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/rrweb@2.0.0-alpha.4/dist/rrweb.umd.min.cjs';
+      s.onload  = () => resolve(!!(window.rrweb && window.rrweb.record));
+      s.onerror = () => resolve(false);
+      document.head.appendChild(s);
+    });
+    return rrwebReady;
+  }
+  async function recordWithRrweb(opts) {
+    const events = [];
+    const stopFn = window.rrweb.record({
+      emit: e => events.push(e),
+      recordCanvas: true, collectFonts: true, inlineStylesheet: true,
+      sampling: { mousemove: 50, scroll: 100, media: 800, input: 'last' }
+    });
+    await sleep(opts.lead ?? 900);
+    seek(0); play();
+    return {
+      kind: 'rrweb',
+      stop() {
+        try { stopFn(); } catch(e) {}
+        const payload = { v: 1, at: Date.now(), duration: now, events };
+        if (opts.uploadTo) {
+          // Gửi JSON lên server → Playwright/Puppeteer render frame-perfect 60fps
+          fetch(opts.uploadTo, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }).catch(() => {});
+        } else {
+          const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = (opts.filename || 'tutorial').replace(/\.[^.]+$/, '') + '.rrweb.json';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+        recording = null;
+      }
+    };
+  }
+  async function record(opts = {}) {
+    ensureUI();
+    // Ưu tiên rrweb: nhẹ (~KB), không popup, server render được frame-perfect
+    if (opts.mode !== 'screen') {
+      const ok = await ensureRrweb();
+      if (ok) { recording = await recordWithRrweb(opts); return recording; }
+    }
+    // Fallback: getDisplayMedia + MediaRecorder (khi mất mạng / chặn CDN)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      alert('Không tải được rrweb và trình duyệt không hỗ trợ getDisplayMedia.');
+      return null;
+    }
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: opts.fps || 60, width: { ideal: opts.width || 1920 }, height: { ideal: opts.height || 1080 } },
+      audio: false
+    });
+    const mime = opts.mime || 'video/webm;codecs=vp9';
+    const rec = new MediaRecorder(stream, {
+      mimeType: MediaRecorder.isTypeSupported(mime) ? mime : 'video/webm',
+      videoBitsPerSecond: opts.bitrate || 8_000_000
+    });
+    recChunks = [];
+    rec.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(recChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = opts.filename || 'tutorial.webm';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      stream.getTracks().forEach(t => t.stop());
+      recording = null;
+    };
+    recording = rec; rec.start(250);
+    await sleep(opts.lead ?? 900);
+    seek(0); play();
+    return rec;
+  }
+  function stopRecording() { if (recording) { try { recording.stop(); } catch(e) {} } }
+
+  /* ===== 2026: Gemini 2.5 Flash-Lite tự sinh kịch bản hướng dẫn =====
+   * Quét DOM hiện tại → gửi backend → nhận timeline JSON → chạy tour. */
+  async function generateAI(userRequest) {
+    ensureUI();
+    if (!userRequest) { showTip('Vui lòng nhập câu hỏi.', null); return null; }
+    if (!AI_ENDPOINT && location.protocol === 'file:') {
+      showTip('Cần cấu hình window.TUT_AI_ENDPOINT (backend proxy giữ API key).', null);
+      return null;
+    }
+    showTip('Gemini đang phân tích giao diện…', null);
+
+    const htmlStructure = buildHtmlStructure();
+
+    try {
+      const res = await fetch(timelineUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userRequest, htmlStructure })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const dynamicTimeline = await res.json();
+      if (!Array.isArray(dynamicTimeline) || !dynamicTimeline.length)
+        throw new Error('Timeline rỗng hoặc sai định dạng.');
+      // Đảm bảo có voice: nếu AI bỏ sót, tự chèn voice từ text của bước tương ứng.
+      const hasVoice = dynamicTimeline.some(x => x.act === 'voice');
+      let finalTl = dynamicTimeline;
+      if (!hasVoice) {
+        finalTl = [];
+        dynamicTimeline.forEach(a => {
+          finalTl.push(a);
+          if ((a.act === 'focus' || a.act === 'click' || a.act === 'fill' || a.act === 'select')
+              && a.text) {
+            finalTl.push({ t: (Number(a.t) || 0) + 0.15, act: 'voice', text: a.text });
+          }
+        });
+      }
+      hideTip();
+      load(finalTl).play();
+      return finalTl;
+    } catch (err) {
+      showTip('Không thể sinh hướng dẫn AI: ' + err.message, null);
+      return null;
+    }
+  }
+
+  const API = {
+    load, play, pause, toggle, seek, stop, setVoiceMuted,
+    record, stopRecording,
+    generateAI, prefetchTTS, buildHtmlStructure,
+    get time() { return now; },
+    get duration() { return duration; },
+    get playing() { return playing; },
+    _ui: () => ui, _actions: ACT
+  };
+  return API;
+})();
+window.Tut = Tut;
+</script>
+<script>
+/* ================= kịch bản hướng dẫn + nút bật ================= */
+window.TUTORIAL_DEMO = [
+  { t: 0.0,  act:'voice', text:'Chào mừng đến với hệ thống quản lý lệnh sản xuất Tôn Bình Minh.' },
+  { t: 0.4,  act:'focus', sel:'[data-tut="nav-dashboard"]' },
+  { t: 2.4,  act:'click', sel:'[data-tut="nav-orders"]' },
+  { t: 3.6,  act:'focus', sel:'#view-orders input[type="text"]',
+            text:'Đây là ô tìm kiếm đơn hàng theo mã hoặc khách hàng.' },
+  { t: 5.6,  act:'hideSpot' },
+  { t: 6.0,  act:'click', sel:'[data-tut="nav-lsx"]' },
+  { t: 7.2,  act:'focus', sel:'button[onclick*="autoGroup"]',
+            text:'Bấm đây để hệ thống tự gộp các đơn cùng quy cách thành LSX.' },
+  { t: 9.4,  act:'click', sel:'button[onclick*="autoGroup"]' },
+  { t: 11.0, act:'hideSpot' },
+  { t: 11.4, act:'focus', sel:'#view-lsx .grid > div:first-child' },
+  { t: 13.0, act:'tip',   sel:'#view-lsx .grid > div:first-child',
+            text:'Mỗi thẻ là một LSX, kèm tải trọng và cảnh báo nguy cơ trễ.' },
+  { t: 15.5, act:'voice', text:'Tiếp theo, tôi hướng dẫn tạo đơn hàng với dữ liệu ví dụ.' },
+  { t: 18.2, act:'click', sel:'[data-tut="nav-orders"]' },
+  { t: 19.6, act:'focus', sel:'#view-orders button[onclick*="openOrderForm"]',
+            text:'Bấm nút "Tạo đơn hàng" để mở biểu mẫu.' },
+  { t: 21.2, act:'click', sel:'#view-orders button[onclick*="openOrderForm"]' },
+  { t: 23.0, act:'fill',   sel:'#f-customer', value:'Cty TNHH RCB Construction',
+            text:'Nhập tên khách hàng ví dụ.' },
+  { t: 25.4, act:'select', sel:'#f-core',   value:'BMLock 985',
+            text:'Chọn loại tôn BMLock 985 — tôn lợp cao cấp.' },
+  { t: 27.0, act:'select', sel:'#f-finish', value:'Caulfield Green',
+            text:'Màu Caulfield Green theo chuẩn Colorbond.' },
+  { t: 28.6, act:'select', sel:'#f-thick',  value:'0.45',
+            text:'Độ dày BMT 0.45mm.' },
+  { t: 30.2, act:'fill',   sel:'#f-w',   value:'0.985', text:'Khổ hữu ích 0.985m.' },
+  { t: 31.7, act:'fill',   sel:'#f-l',   value:'3.0', text:'Chiều dài 3m.' },
+  { t: 33.2, act:'fill',   sel:'#f-qty', value:'200', text:'Số lượng 200 tấm.' },
+  { t: 35.5, act:'voice', text:'Kiểm tra lại thông tin rồi bấm Lưu để tạo đơn hàng.' },
+  { t: 38.0, act:'reset' }
+];
+window.startTutorial = function () { Tut.load(window.TUTORIAL_DEMO).play(); };
+window.recordTutorial = function () { Tut.load(window.TUTORIAL_DEMO).record({ filename: 'huong-dan-lsx.webm' }); };
+// Cho phép override endpoint bằng query string:  ?ai=https://...
+try {
+  const p = new URLSearchParams(location.search).get('ai');
+  if (p) window.TUT_AI_ENDPOINT = p.replace(/\/+$/, '');
+} catch(e) {}
+
+/* ============================= AI Q&A ============================= */
+window.AI_ENDPOINT = (window.TUT_AI_ENDPOINT || '').replace(/\/+$/, '');
+let _aiLast = '';
+let _aiAudio = null;
+
+function _norm(s){
+  return String(s||'').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d');
+}
+
+const AI_KB = [
+  { keys:['tao don hang','them don hang','don hang moi','tao don','new order','lap don'],
+    answer:'📝 Tạo đơn hàng mới:\n1. Vào tab "Đơn hàng" ở menu bên trái.\n2. Bấm nút "+ Tạo đơn hàng" (góc phải trên bảng).\n3. Điền các trường bắt buộc (*): Khách hàng, Khổ hữu ích (m), Chiều dài (m), Số lượng (tấm).\n   Các trường khác: Loại tôn (BMLock 985/1000, BMSeamlock 485/500, Industrial 5/6 sóng, Residential 9/11/13 sóng), Màu sắc (Caulfield Green, Forever Beige, Mist Green, Xanh Navy...), Độ dày BMT (0.35–0.60mm), Ưu tiên (Cao/Trung bình/Thấp), Hạn giao, Ghi chú.\n4. Bấm "Lưu". Đơn mới có trạng thái "Nháp".\n5. Mở đơn để "Phát hành" → đưa vào sản xuất.' },
+  { keys:['sua don','chinh sua don','cap nhat don','edit order'],
+    answer:'✏️ Sửa đơn hàng:\n1. Vào "Đơn hàng", bấm vào dòng cần sửa để mở chi tiết.\n2. Bấm nút "✎ Sửa đơn" ở góc dưới bên phải.\n3. Chỉnh sửa các trường và bấm "Lưu".\nLưu ý: Diện tích tự động tính lại theo Rộng × Dài × Số lượng.' },
+  { keys:['phat hanh','trang thai don','doi trang thai','chuyen trang thai','luong trang thai'],
+    answer:'🔄 Luồng trạng thái đơn hàng:\nNháp → Đã phát hành → Đang sản xuất → Hoàn thành → Đã giao hàng → Đã đóng.\n(Đơn có thể bị Treo hoặc Hủy ở một số bước.)\nMở chi tiết đơn và bấm nút tương ứng ở dòng thao tác để chuyển bước.' },
+  { keys:['tao lsx','tao lenh san xuat','lap lich san xuat','lenh san xuat moi'],
+    answer:'🏭 Tạo LSX:\n- Cách 1 (tự động): Vào "Lệnh sản xuất" → bấm "⚡ Tự động gộp đơn thành LSX". Hệ thống gom các đơn cùng quy cách (lõi | độ dày | bề mặt).\n- Cách 2 (thủ công): Bấm "+ Tạo LSX thủ công", chọn quy cách + dây chuyền + thời gian, bấm "Tạo", sau đó bấm "Sửa" để thêm đơn.' },
+  { keys:['them don vao lsx','gan don','them vao lsx'],
+    answer:'➕ Thêm đơn vào LSX:\n1. Ở tab "Lệnh sản xuất", bấm "✎ Sửa" trên thẻ LSX.\n2. Ở cuối hộp thoại, chọn đơn trong dropdown "Thêm đơn hàng" rồi bấm "Thêm".\nChỉ hiện các đơn đã Phát hành và chưa thuộc LSX nào.' },
+  { keys:['bat dau san xuat','chay lsx','start lsx'],
+    answer:'▶ Bắt đầu sản xuất LSX:\n- Trên thẻ LSX (trạng thái "Đã lập KH"), bấm "▶ Bắt đầu SX".\n- Các đơn trong LSX sẽ chuyển sang "Đang sản xuất".' },
+  { keys:['hoan thanh lsx','ket thuc lsx','xong lsx','finish'],
+    answer:'✔ Hoàn thành LSX:\n- Trên thẻ LSX (trạng thái "Đang SX"), bấm "✔ Hoàn thành".\n- Các đơn "Đang sản xuất" trong LSX chuyển sang "Hoàn thành".' },
+  { keys:['xoa lsx','huy lsx'],
+    answer:'🗑 Xóa LSX:\nBấm "Xóa" trên thẻ LSX (chỉ hiện khi LSX chưa Đang SX / Hoàn thành). Các đơn sẽ trở về "Đã phát hành".' },
+  { keys:['giao dien','man hinh','tong quan','dashboard'],
+    answer:'🖥 Giao diện gồm 4 tab chính:\n• Tổng quan: KPI (đơn đang xử lý, diện tích đang SX, doanh thu, đúng hạn), trạng thái đơn, tải dây chuyền, top khách hàng, đơn sắp đến hạn, LSX đang chạy.\n• Đơn hàng: bảng toàn bộ đơn, lọc/tìm kiếm, tạo & sửa.\n• Lệnh sản xuất: gộp đơn thành LSX, xem tải và cảnh báo trễ.\n• Thiết lập: doanh thu theo dòng, thông số dây chuyền, ca làm việc.' },
+  { keys:['menu','dieu huong','chuyen tab'],
+    answer:'📂 Menu bên trái có 4 mục: Tổng quan, Đơn hàng, Lệnh sản xuất, Thiết lập. Trên điện thoại dùng thanh 4 tab ở dưới cùng.' },
+  { keys:['tim kiem don','loc don','tra cuu don'],
+    answer:'🔎 Tìm/lọc đơn hàng:\nỞ tab "Đơn hàng", dùng ô "Tìm theo mã / khách hàng..." và dropdown "Tất cả trạng thái". Kết quả cập nhật ngay khi gõ.' },
+  { keys:['han giao','due','tre han'],
+    answer:'⏰ Hạn giao:\n- Nhập trong form đơn hàng (datetime-local). Bỏ trống giờ → mặc định cuối ngày 17:00.\n- Đơn quá hạn hiện chữ đỏ; đơn < 4h tới hạn có badge "⏱ x.xh".\n- Thẻ LSX có cảnh báo "Nguy cơ trễ" dựa trên công suất/giờ và đệm giao hàng 2h.' },
+  { keys:['bom','nguyen lieu','vat tu'],
+    answer:'🧾 BOM nguyên liệu:\nMở chi tiết đơn hàng → xem bảng BOM ước tính: Tôn cuộn mạ màu, Sơn phủ bảo vệ, Ốc vít bắt mái, Long đền cao su. Khối lượng tôn tính theo diện tích × độ dày BMT × tỉ trọng 7850 kg/m³.' },
+  { keys:['doanh thu','tien','bao nhieu tr','revenue'],
+    answer:'💰 Doanh thu ước tính:\nXem ở KPI "Doanh thu ước tính" trong tab Tổng quan, hoặc bảng chi tiết theo loại tôn trong tab Thiết lập. Đơn giá mặc định: BMLock 195k, BMSeamlock 215k, Industrial 145k, Residential 165k VND/m².' },
+  { keys:['thiet lap','cau hinh','ca lam viec','nang suat'],
+    answer:'⚙️ Tab Thiết lập:\n- Bảng doanh thu theo dòng lõi.\n- Bảng dây chuyền: sửa Công suất/LSX, Công suất/giờ, thời gian Setup (phút) — dùng cho gộp đơn và tính kịp due.\n- Ca làm việc: 3 ca (06-14, 14-22, 22-06).\n- Nút "Khôi phục dữ liệu demo".' },
+  { keys:['kpi','chi so'],
+    answer:'📊 4 KPI trên Tổng quan:\n1) Đơn hàng đang xử lý.\n2) Diện tích đang SX (m²).\n3) Doanh thu ước tính (triệu VND).\n4) Tỷ lệ giao đúng hạn (%).' },
+];
+
+/* ============================================================
+ * Timeline hướng dẫn viết sẵn — ưu tiên dùng thay vì gọi AI.
+ * Đi sâu vào từng bước nhập liệu (mở modal, fill/select, Lưu).
+ * Khớp keyword tiếng Việt không dấu → không tốn request AI.
+ * ============================================================ */
+const AI_TIMELINES = [
+  { keys:['tao don hang','tao don','them don hang','lap don','don hang moi','new order','dat hang'],
+    timeline:[
+      { t:0.0,  act:'voice',  text:'Tôi hướng dẫn bạn tạo một đơn hàng mới.' },
+      { t:0.2,  act:'focus',  sel:'[data-tut="nav-orders"]', text:'Mở tab Đơn hàng ở menu bên trái.' },
+      { t:1.8,  act:'click',  sel:'[data-tut="nav-orders"]' },
+      { t:3.0,  act:'focus',  sel:'#view-orders button[onclick*="openOrderForm"]', text:'Bấm nút "+ Tạo đơn hàng" ở góc phải.' },
+      { t:4.6,  act:'click',  sel:'#view-orders button[onclick*="openOrderForm"]' },
+      { t:6.2,  act:'fill',   sel:'#f-customer', value:'Cty TNHH RCB Construction', text:'Nhập tên khách hàng (bắt buộc).' },
+      { t:8.6,  act:'select', sel:'#f-core',     value:'BMLock 985',      text:'Chọn loại tôn — ví dụ BMLock 985.' },
+      { t:10.0, act:'select', sel:'#f-finish',   value:'Caulfield Green', text:'Chọn màu — ví dụ Caulfield Green.' },
+      { t:11.4, act:'select', sel:'#f-thick',    value:'0.45',            text:'Chọn độ dày BMT 0.45mm.' },
+      { t:12.8, act:'fill',   sel:'#f-w',        value:'0.985',           text:'Nhập khổ hữu ích 0.985m.' },
+      { t:14.2, act:'fill',   sel:'#f-l',        value:'3.0',             text:'Nhập chiều dài 3m.' },
+      { t:15.6, act:'fill',   sel:'#f-qty',      value:'200',  text:'Nhập số lượng 200 tấm.' },
+      { t:17.6, act:'focus',  sel:'[onclick*="saveOrder"]', text:'Kiểm tra lại rồi bấm Lưu.' },
+      { t:19.2, act:'click',  sel:'[onclick*="saveOrder"]' },
+      { t:20.8, act:'voice',  text:'Đơn mới được tạo ở trạng thái Nháp. Mở đơn để Phát hành.' },
+      { t:23.0, act:'reset' }
+    ] },
+  { keys:['tao lsx','gop don','lenh san xuat','lap lich san xuat','tao lenh','gop lsx'],
+    timeline:[
+      { t:0.0, act:'voice', text:'Tôi hướng dẫn tạo Lệnh sản xuất bằng cách gộp đơn tự động.' },
+      { t:0.2, act:'focus', sel:'[data-tut="nav-lsx"]', text:'Mở tab Lệnh sản xuất.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-lsx"]' },
+      { t:3.0, act:'focus', sel:'button[onclick*="autoGroup"]', text:'Bấm "Tự động gộp đơn thành LSX".' },
+      { t:5.0, act:'click', sel:'button[onclick*="autoGroup"]' },
+      { t:6.5, act:'focus', sel:'#view-lsx .grid > div:first-child', text:'Hệ thống gom các đơn cùng quy cách (lõi | độ dày | bề mặt) thành một LSX.' },
+      { t:9.0, act:'reset' }
+    ] },
+  { keys:['them don vao lsx','gan don','them vao lsx','bo sung don'],
+    timeline:[
+      { t:0.0, act:'voice', text:'Tôi hướng dẫn thêm đơn hàng vào một LSX đã có.' },
+      { t:0.2, act:'focus', sel:'[data-tut="nav-lsx"]', text:'Mở tab Lệnh sản xuất.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-lsx"]' },
+      { t:3.0, act:'focus', sel:'#view-lsx .grid > div:first-child button[onclick*="openLsxEdit"]', text:'Bấm "Sửa" trên thẻ LSX.' },
+      { t:4.6, act:'click', sel:'#view-lsx .grid > div:first-child button[onclick*="openLsxEdit"]' },
+      { t:6.5, act:'focus', sel:'#e-add', text:'Chọn đơn hàng đã phát hành từ dropdown.' },
+      { t:8.5, act:'focus', sel:'button[onclick*="lsxAddOrder"]', text:'Bấm "Thêm" để gắn đơn vào LSX, rồi bấm "Lưu thay đổi".' },
+      { t:11.0, act:'reset' }
+    ] },
+  { keys:['chuyen trang thai','phat hanh','doi trang thai','bat dau san xuat don','trang thai don'],
+    timeline:[
+      { t:0.0, act:'voice', text:'Tôi hướng dẫn chuyển trạng thái đơn hàng.' },
+      { t:0.2, act:'focus', sel:'[data-tut="nav-orders"]', text:'Mở tab Đơn hàng.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-orders"]' },
+      { t:3.0, act:'focus', sel:'#view-orders table tbody tr:first-child', text:'Bấm vào một dòng để mở chi tiết đơn.' },
+      { t:4.6, act:'click', sel:'#view-orders table tbody tr:first-child' },
+      { t:6.5, act:'focus', sel:'[onclick*="setOrderStatus"]', text:'Bấm nút thao tác: Phát hành / Bắt đầu SX / Hoàn thành / Giao hàng / Đóng.' },
+      { t:9.5, act:'voice', text:'Luồng: Nháp → Phát hành → Đang sản xuất → Hoàn thành → Giao hàng → Đóng.' },
+      { t:12.5, act:'reset' }
+    ] },
+  { keys:['tim don','loc don','xem don hang','danh sach don','tra cuu don'],
+    timeline:[
+      { t:0.0, act:'voice', text:'Bạn có thể tìm và lọc đơn hàng trong tab Đơn hàng.' },
+      { t:0.2, act:'focus', sel:'[data-tut="nav-orders"]', text:'Mở tab Đơn hàng.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-orders"]' },
+      { t:3.0, act:'focus', sel:'#view-orders input[type="text"]', text:'Nhập mã đơn hoặc tên khách hàng để tìm nhanh.' },
+      { t:5.5, act:'focus', sel:'#view-orders select', text:'Hoặc chọn trạng thái để lọc.' },
+      { t:7.5, act:'reset' }
+    ] },
+  { keys:['xem lsx','danh sach lsx','lenh san xuat dang chay'],
+    timeline:[
+      { t:0.0, act:'focus', sel:'[data-tut="nav-lsx"]', text:'Mở tab Lệnh sản xuất để xem toàn bộ LSX.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-lsx"]' },
+      { t:3.0, act:'focus', sel:'#view-lsx .grid > div:first-child', text:'Mỗi thẻ hiển thị tải trọng, khung giờ và cảnh báo nguy cơ trễ.' },
+      { t:6.0, act:'reset' }
+    ] },
+  { keys:['tong quan','dashboard','kpi','bao cao chung'],
+    timeline:[
+      { t:0.0, act:'focus', sel:'[data-tut="nav-dashboard"]', text:'Mở tab Tổng quan.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-dashboard"]' },
+      { t:3.0, act:'focus', sel:'#view-dashboard .grid', text:'4 KPI: đơn đang xử lý, diện tích đang SX, doanh thu ước tính, tỷ lệ giao đúng hạn.' },
+      { t:6.0, act:'reset' }
+    ] },
+  { keys:['doanh thu','bao nhieu tr','tien','revenue'],
+    timeline:[
+      { t:0.0, act:'focus', sel:'[data-tut="nav-setup"]', text:'Mở tab Thiết lập để xem doanh thu theo dòng sản phẩm.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-setup"]' },
+      { t:3.0, act:'focus', sel:'#view-setup table', text:'Bảng doanh thu ước tính theo lõi: EPS / XPS / PU / Rockwool.' },
+      { t:6.0, act:'reset' }
+    ] },
+  { keys:['thiet lap','cau hinh','day chuyen','ca lam viec','nang suat'],
+    timeline:[
+      { t:0.0, act:'focus', sel:'[data-tut="nav-setup"]', text:'Mở tab Thiết lập.' },
+      { t:1.6, act:'click', sel:'[data-tut="nav-setup"]' },
+      { t:3.0, act:'focus', sel:'#view-setup input[data-line]', text:'Sửa công suất dây chuyền, công suất/giờ và thời gian setup.' },
+      { t:6.0, act:'focus', sel:'#view-setup input[type="time"]', text:'Hoặc chỉnh giờ ca làm việc.' },
+      { t:9.0, act:'reset' }
+    ] },
+];
+
+function aiMatchLocalTimeline(q){
+  const n = _norm(q);
+  for(const it of AI_TIMELINES){
+    if(it.keys.some(k => n.includes(_norm(k)))) return it.timeline;
+  }
+  return null;
+}
+window.aiMatchLocalTimeline = aiMatchLocalTimeline;
+
+const AI_SUGGESTIONS = [
+  'Cách tạo đơn hàng mới?',
+  'Làm sao để tạo LSX?',
+  'Thêm đơn vào LSX như thế nào?',
+  'Chuyển trạng thái đơn hàng ra sao?',
+  'Giới thiệu giao diện?',
+  'Đang có bao nhiêu đơn hàng?',
+  'Doanh thu ước tính là bao nhiêu?',
+  'Có bao nhiêu đơn trễ hạn?',
+  'Tìm kiếm đơn hàng ở đâu?',
+  'Thiết lập dây chuyền & ca làm việc?'
+];
+
+function aiShowSuggestions(){
+  const box = document.getElementById('ai-suggest');
+  if(!box) return;
+  box.innerHTML = AI_SUGGESTIONS.map(q =>
+    `<button type="button" data-q="${q.replace(/"/g,'&quot;')}"
+      class="ai-sug-item w-full text-left px-3 py-2 text-slate-700 hover:bg-violet-50 hover:text-violet-700 text-xs lg:text-sm">
+      <i data-lucide="message-circle-question" class="!w-3.5 !h-3.5 mr-1"></i>${q}
+    </button>`).join('');
+  box.querySelectorAll('.ai-sug-item').forEach(btn => {
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      aiPickSuggestion(btn.getAttribute('data-q'));
+    });
+  });
+  box.classList.remove('hidden');
+  if(window.lucide) lucide.createIcons();
+}
+function aiHideSuggestions(){
+  const box = document.getElementById('ai-suggest');
+  if(box) box.classList.add('hidden');
+}
+function aiPickSuggestion(q){
+  const el = document.getElementById('ai-query');
+  if(el) el.value = q;
+  aiHideSuggestions();
+  askAI();
+}
+window.aiShowSuggestions = aiShowSuggestions;
+window.aiHideSuggestions = aiHideSuggestions;
+window.aiPickSuggestion = aiPickSuggestion;
+
+function aiAnswerLocal(q){
+  const n = _norm(q);
+  if(/(bao nhieu don|so don|tong don)/.test(n) && typeof state !== 'undefined' && state){
+    const by = {}; state.orders.forEach(o => by[o.status] = (by[o.status]||0)+1);
+    const parts = Object.keys(by).map(k => `${STATUS[k] || k}: ${by[k]}`).join(' · ');
+    return `📦 Hiện có ${state.orders.length} đơn hàng.\n${parts}`;
+  }
+  if(/(bao nhieu lsx|so lenh|lenh san xuat)/.test(n) && typeof state !== 'undefined' && state){
+    return `🏭 Hiện có ${state.lsx.length} lệnh sản xuất (${state.lsx.filter(l=>l.status!=='finished').length} chưa hoàn thành).`;
+  }
+  if(/(doanh thu|bao nhieu tr)/.test(n) && typeof state !== 'undefined' && state && typeof orderRevenue === 'function'){
+    const rev = state.orders.reduce((s,o) => s + (orderRevenue(o)||0), 0);
+    return `💰 Doanh thu ước tính: ${(rev/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})} triệu VND.`;
+  }
+  if(/(don tre|qua han)/.test(n) && typeof state !== 'undefined' && state){
+    const c = state.orders.filter(o => !['closed','shipped','canceled','finished'].includes(o.status) && daysUntil(o.due) < 0).length;
+    return `⚠️ Có ${c} đơn đang trễ hạn.`;
+  }
+  for(const it of AI_KB){
+    if(it.keys.some(k => n.includes(_norm(k)))) return it.answer;
+  }
+  return null;
+}
+
+async function _fetchTTS(text){
+  if(!window.AI_ENDPOINT || !text) return null;
+  try {
+    const r = await fetch(window.AI_ENDPOINT + '/api/tts', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    if(!r.ok) return null;
+    const d = await r.json();
+    if(!d || !d.audioContent) return null;
+    return new Audio('data:' + (d.mimeType||'audio/mpeg') + ';base64,' + d.audioContent);
+  } catch(e){ return null; }
+}
+
+async function _speak(text){
+  if(!text) return;
+  const a = await _fetchTTS(text);
+  if(a){
+    if(_aiAudio){ try{_aiAudio.pause();}catch(e){} }
+    _aiAudio = a;
+    try{ await a.play(); return; }catch(e){}
+  }
+  try {
+    if(window.speechSynthesis){
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'vi-VN';
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    }
+  } catch(e){}
+}
+
+function _showAnswer(text){
+  _aiLast = text;
+  const panel = document.getElementById('ai-panel');
+  const box = document.getElementById('ai-answer');
+  if(!panel || !box) return;
+  box.textContent = text;
+  panel.classList.remove('hidden');
+  if(window.lucide) lucide.createIcons();
+  _speak(text.slice(0, 400));
+}
+
+async function _askRemote(q){
+  if(!window.AI_ENDPOINT) return null;
+  try {
+    const snapshot = (typeof state !== 'undefined' && state) ? {
+      totals:{ orders: state.orders.length, lsx: state.lsx.length,
+        byStatus: state.orders.reduce((a,o)=>{a[o.status]=(a[o.status]||0)+1;return a;},{}),
+        totalArea: +state.orders.reduce((s,o)=>s+o.area,0).toFixed(2) }
+    } : null;
+    // Kèm cấu trúc DOM hiện tại để backend sinh được selector cho timeline hướng dẫn.
+    const htmlStructure = (window.Tut && typeof Tut.buildHtmlStructure === 'function')
+      ? Tut.buildHtmlStructure() : undefined;
+    const r = await fetch(window.AI_ENDPOINT + '/api/ask', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ userRequest:q, dataContext:snapshot, htmlStructure })
+    });
+    if(!r.ok) return null;
+    const d = await r.json();
+    return d && typeof d === 'object' ? d : null;
+  } catch(e){ return null; }
+}
+
+async function askAI(){
+  const el = document.getElementById('ai-query');
+  const q = (el && el.value || '').trim();
+  if(!q){ el && el.focus(); return; }
+  aiHideSuggestions();
+
+  // 1) Timeline local viết sẵn — ưu tiên, đi sâu vào từng bước nhập liệu, không tốn request
+  const localTl = aiMatchLocalTimeline(q);
+  if(localTl){
+    if(typeof window._playTimeline === 'function') window._playTimeline(localTl);
+    if(el) el.value = '';
+    return;
+  }
+
+  const box = document.getElementById('ai-answer');
+  const panel = document.getElementById('ai-panel');
+  if(panel) panel.classList.remove('hidden');
+  if(box) box.textContent = '⏳ Đang xử lý…';
+
+  // 2) Remote /api/ask — có thể trả về timeline hướng dẫn hoặc câu trả lời
+  const remote = await _askRemote(q);
+  if(remote){
+    const tlArr = remote.timeline || (Array.isArray(remote) ? remote : null);
+    if((remote.kind === 'timeline' || Array.isArray(remote)) && Array.isArray(tlArr) && tlArr.length){
+      if(box) box.textContent = '▶ Đang phát hướng dẫn trực quan…';
+      if(typeof window._playTimeline === 'function') window._playTimeline(tlArr);
+      if(el) el.value = '';
+      return;
+    }
+    if(remote.answer || remote.speak){
+      _showAnswer(remote.answer || remote.speak);
+      if(el) el.value = '';
+      return;
+    }
+  }
+
+  // 2) Fallback KB nội bộ
+  let ans = aiAnswerLocal(q);
+  if(!ans) ans = 'Xin lỗi, tôi chưa có câu trả lời sẵn cho câu này. Bạn có thể hỏi về:\n• Cách tạo/sửa đơn hàng, chuyển trạng thái\n• Cách tạo LSX, gộp đơn, thêm đơn vào LSX\n• Giới thiệu giao diện, các tab, KPI\n• Tìm kiếm/lọc đơn, hạn giao, BOM, doanh thu\n• Thông số dây chuyền, ca làm việc';
+
+  _showAnswer(ans);
+  if(el) el.value = '';
+}
+window.askAI = askAI;
+window.aiClose = function(){
+  const p = document.getElementById('ai-panel'); if(p) p.classList.add('hidden');
+  if(_aiAudio){ try{_aiAudio.pause();}catch(e){} _aiAudio = null; }
+};
+window.aiSpeak = function(){ if(_aiLast) _speak(_aiLast); };
+
+/* Phát timeline với prefetch TTS (giọng không bị ngắt giữa các bước) */
+function _playTimeline(timeline){
+  if(!window.Tut || !Array.isArray(timeline) || !timeline.length) return;
+  Tut.prefetchTTS(timeline).then(() => Tut.load(timeline).play());
+}
+window._playTimeline = _playTimeline;
+</script>
+</body>
+</html>
